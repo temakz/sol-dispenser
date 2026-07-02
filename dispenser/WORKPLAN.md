@@ -30,7 +30,7 @@ Tasks:
 - create durable nonce accounts: done,
 - set nonce authority to disposable wallets: done,
 - add error codes: done,
-- add Anchor tests: pending,
+- add Anchor tests: added; local validator execution blocked by Windows privilege error 1314,
 - run `anchor build`: done with Anchor `1.1.2` and Solana CLI `3.1.10`,
 - investigate `cargo-build-sbf` post-processing syscall warning: pending.
 

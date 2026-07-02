@@ -7,9 +7,12 @@ skip-lint = false
 [programs.devnet]
 sol_dispenser = "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6"
 
+[programs.localnet]
+sol_dispenser = "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6"
+
 [provider]
-cluster = "devnet"
-wallet = "./wallet.json"
+cluster = "localnet"
+wallet = "target/test-wallet.json"
 
 [scripts]
-test = "npx ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+test = "npx mocha --timeout 1000000 tests/**/*.cjs"

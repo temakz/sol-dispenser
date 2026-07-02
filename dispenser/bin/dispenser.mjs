@@ -6,6 +6,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
+import { delimiter } from "node:path";
 import {
   createCipheriv,
   createDecipheriv,
@@ -113,6 +114,7 @@ function commandBuildProgram() {
 
   const result = spawnSync(anchor.command, ["build"], {
     cwd: repoRoot,
+    env: toolEnv(),
     shell: process.platform === "win32",
     stdio: "inherit",
   });
@@ -311,6 +313,7 @@ function findRunnableTool(candidates) {
     const result = spawnSync(candidate.command, candidate.args, {
       cwd: repoRoot,
       encoding: "utf8",
+      env: toolEnv(),
       shell: process.platform === "win32",
     });
 
@@ -323,6 +326,30 @@ function findRunnableTool(candidates) {
   }
 
   return null;
+}
+
+function toolEnv() {
+  const pathEntries = [
+    join(process.env.USERPROFILE ?? "", ".cargo", "bin"),
+    join(
+      process.env.USERPROFILE ?? "",
+      ".local",
+      "share",
+      "solana",
+      "install",
+      "releases",
+      "3.1.10",
+      "solana-release",
+      "bin"
+    ),
+  ];
+  const currentPath = process.env.PATH || process.env.Path || "";
+  const pathValue = [...pathEntries, currentPath].filter(Boolean).join(delimiter);
+  return {
+    ...process.env,
+    PATH: pathValue,
+    Path: pathValue,
+  };
 }
 
 function printChecks(checks) {
