@@ -56,21 +56,21 @@ Deliverable:
 
 ## Phase 3 - Planning Flow
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- implement interactive `plan`,
-- implement non-interactive flags,
-- validate Solana addresses,
-- support manual split,
-- support equal split,
-- write `bundle-plan.json`,
-- protect against accidental overwrite.
+- implement interactive `plan`: done,
+- implement non-interactive flags: done,
+- validate Solana addresses: done,
+- support manual split: done,
+- support equal split: deferred until weighted distribution mode,
+- write `bundle-plan.json`: done,
+- protect against accidental overwrite: done via unique run directories.
 
 Deliverable:
 
-- reproducible bundle plan file.
+- reproducible bundle plan file in `dispenser/runs/<run-id>/bundle-plan.json`.
 
 ## Phase 4 - Secret Vault
 

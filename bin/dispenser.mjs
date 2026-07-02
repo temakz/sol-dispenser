@@ -2,6 +2,8 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
+import { createInterface } from "node:readline/promises";
+import { stdin as input, stdout as output } from "node:process";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
@@ -24,6 +26,7 @@ const commands = new Map([
   ["help", commandHelp],
   ["doctor", commandDoctor],
   ["init", commandInit],
+  ["plan", commandPlan],
 ]);
 
 async function main() {
@@ -46,10 +49,11 @@ function commandHelp() {
 Usage:
   dispenser doctor
   dispenser init [--force]
+  dispenser plan [--total SOL] [--wallets N] [--recipient ADDRESS:SOL]
   dispenser help
 
 Current phase:
-  Phase 2 CLI foundation. No command in this phase moves funds.
+  Phase 3 planning. No command in this phase moves funds.
 `);
 }
 
@@ -104,6 +108,71 @@ function commandInit(args) {
   log("warn", "Review sourceWalletPath, rescueWallet, programId, and maxSolPerRun before using later phases.");
 }
 
+async function commandPlan(args) {
+  const flags = parseFlags(args);
+  const config = loadConfigIfPresent() ?? defaultConfig;
+  const answers = await collectPlanInput(flags);
+  const recipients = answers.recipients.map((recipient, index) => ({
+    index,
+    address: recipient.address,
+    amountLamports: parseSolToLamports(recipient.amountSol).toString(),
+    amountSol: formatLamports(parseSolToLamports(recipient.amountSol)),
+  }));
+
+  const totalLamports = parseSolToLamports(answers.totalSol);
+  const recipientTotal = recipients.reduce(
+    (sum, recipient) => sum + BigInt(recipient.amountLamports),
+    0n
+  );
+
+  if (recipientTotal !== totalLamports) {
+    throw new Error(
+      `Recipient total ${formatLamports(recipientTotal)} SOL does not match total ${formatLamports(totalLamports)} SOL`
+    );
+  }
+
+  const walletCount = Number.parseInt(answers.wallets, 10);
+  if (!Number.isSafeInteger(walletCount) || walletCount <= 0) {
+    throw new Error("wallets must be a positive integer");
+  }
+
+  if (walletCount !== recipients.length) {
+    throw new Error("wallet count must match recipient count in the current Phase 3 plan format");
+  }
+
+  const runId = createRunId();
+  const runDir = join(runsDir, runId);
+  mkdirSync(runDir, { recursive: false });
+
+  const plan = {
+    schemaVersion: 1,
+    runId,
+    createdAt: new Date().toISOString(),
+    cluster: config.cluster,
+    rpcUrl: config.rpcUrl,
+    sourceWalletPath: config.sourceWalletPath,
+    rescueWallet: config.rescueWallet,
+    programId: config.programId,
+    durableNonce: true,
+    walletCount,
+    totalLamports: totalLamports.toString(),
+    totalSol: formatLamports(totalLamports),
+    recipients,
+    status: "planned",
+  };
+
+  validatePlan(plan);
+  writeJson(join(runDir, "bundle-plan.json"), plan);
+
+  console.log(`Run: ${runId}`);
+  console.log(`Plan: ${relative(join(runDir, "bundle-plan.json"))}`);
+  console.log(`Cluster: ${plan.cluster}`);
+  console.log(`Total: ${plan.totalSol} SOL (${plan.totalLamports} lamports)`);
+  for (const recipient of recipients) {
+    console.log(`Recipient ${recipient.index + 1}: ${recipient.address} -> ${recipient.amountSol} SOL`);
+  }
+}
+
 function checkCommand(command, args, required) {
   const result = spawnSync(command, args, {
     cwd: repoRoot,
@@ -151,6 +220,119 @@ function loadConfigIfPresent() {
   }
 }
 
+async function collectPlanInput(flags) {
+  if (flags.total && flags.wallets && flags.recipient.length > 0) {
+    return {
+      totalSol: flags.total,
+      wallets: flags.wallets,
+      recipients: flags.recipient.map(parseRecipientFlag),
+    };
+  }
+
+  const rl = createInterface({ input, output });
+  try {
+    const totalSol = await rl.question("Total SOL: ");
+    const wallets = await rl.question("Disposable wallet count: ");
+    const walletCount = Number.parseInt(wallets, 10);
+    if (!Number.isSafeInteger(walletCount) || walletCount <= 0) {
+      throw new Error("Disposable wallet count must be a positive integer");
+    }
+
+    const recipients = [];
+    for (let index = 0; index < walletCount; index += 1) {
+      const address = await rl.question(`Recipient ${index + 1} address: `);
+      const amountSol = await rl.question(`Recipient ${index + 1} SOL amount: `);
+      recipients.push({ address, amountSol });
+    }
+
+    return { totalSol, wallets, recipients };
+  } finally {
+    rl.close();
+  }
+}
+
+function parseFlags(args) {
+  const flags = {
+    total: "",
+    wallets: "",
+    recipient: [],
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--total") {
+      flags.total = requireValue(args, index);
+      index += 1;
+    } else if (arg === "--wallets") {
+      flags.wallets = requireValue(args, index);
+      index += 1;
+    } else if (arg === "--recipient") {
+      flags.recipient.push(requireValue(args, index));
+      index += 1;
+    } else {
+      throw new Error(`Unknown plan flag: ${arg}`);
+    }
+  }
+
+  return flags;
+}
+
+function requireValue(args, index) {
+  const value = args[index + 1];
+  if (!value || value.startsWith("--")) {
+    throw new Error(`${args[index]} requires a value`);
+  }
+  return value;
+}
+
+function parseRecipientFlag(value) {
+  const separator = value.lastIndexOf(":");
+  if (separator <= 0 || separator === value.length - 1) {
+    throw new Error(`Recipient must use ADDRESS:SOL format: ${value}`);
+  }
+  return {
+    address: value.slice(0, separator),
+    amountSol: value.slice(separator + 1),
+  };
+}
+
+function validatePlan(plan) {
+  if (plan.schemaVersion !== 1) {
+    throw new Error("Unsupported plan schema version");
+  }
+  if (!["localnet", "devnet", "mainnet-beta"].includes(plan.cluster)) {
+    throw new Error("Invalid cluster");
+  }
+  if (!isSolanaPubkey(plan.programId)) {
+    throw new Error("Invalid program id");
+  }
+  if (plan.rescueWallet && !isSolanaPubkey(plan.rescueWallet)) {
+    throw new Error("Invalid rescue wallet");
+  }
+  if (plan.walletCount !== plan.recipients.length) {
+    throw new Error("walletCount must equal recipients length");
+  }
+
+  const total = BigInt(plan.totalLamports);
+  const recipientTotal = plan.recipients.reduce((sum, recipient) => {
+    if (!isSolanaPubkey(recipient.address)) {
+      throw new Error(`Invalid recipient address: ${recipient.address}`);
+    }
+    const amount = BigInt(recipient.amountLamports);
+    if (amount <= 0n) {
+      throw new Error("Recipient amount must be greater than zero");
+    }
+    return sum + amount;
+  }, 0n);
+
+  if (total <= 0n) {
+    throw new Error("Total amount must be greater than zero");
+  }
+  if (recipientTotal !== total) {
+    throw new Error("Recipient amounts must sum to total");
+  }
+}
+
 function validateConfig(config) {
   const requiredStrings = [
     "cluster",
@@ -174,6 +356,71 @@ function validateConfig(config) {
   if (config.requireMainnetTypedConfirmation !== true) {
     throw new Error("requireMainnetTypedConfirmation must be true");
   }
+}
+
+function parseSolToLamports(value) {
+  const text = String(value).trim();
+  if (!/^[0-9]+(\.[0-9]{1,9})?$/.test(text)) {
+    throw new Error(`Invalid SOL amount: ${value}`);
+  }
+
+  const [whole, fractional = ""] = text.split(".");
+  const lamportsText = `${whole}${fractional.padEnd(9, "0")}`.replace(/^0+(?=\d)/, "");
+  return BigInt(lamportsText || "0");
+}
+
+function formatLamports(lamports) {
+  const value = BigInt(lamports);
+  const whole = value / 1_000_000_000n;
+  const fractional = value % 1_000_000_000n;
+  const fractionalText = fractional.toString().padStart(9, "0").replace(/0+$/, "");
+  return fractionalText ? `${whole}.${fractionalText}` : whole.toString();
+}
+
+function isSolanaPubkey(value) {
+  try {
+    return decodeBase58(value).length === 32;
+  } catch {
+    return false;
+  }
+}
+
+function decodeBase58(value) {
+  const alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+  const bytes = [];
+
+  for (const char of value) {
+    const carryStart = alphabet.indexOf(char);
+    if (carryStart < 0) {
+      throw new Error("Invalid base58 character");
+    }
+
+    let carry = carryStart;
+    for (let index = 0; index < bytes.length; index += 1) {
+      carry += bytes[index] * 58;
+      bytes[index] = carry & 0xff;
+      carry >>= 8;
+    }
+
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+
+  for (const char of value) {
+    if (char === "1") {
+      bytes.push(0);
+    } else {
+      break;
+    }
+  }
+
+  return bytes.reverse();
+}
+
+function createRunId() {
+  return new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
 function ensureRunsDir() {
