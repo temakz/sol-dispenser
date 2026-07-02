@@ -74,20 +74,20 @@ Deliverable:
 
 ## Phase 4 - Secret Vault
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- generate disposable keypairs,
-- generate nonce keypairs,
-- encrypt secrets with passphrase,
-- verify decrypt-before-funding,
-- never print secret keys,
-- add recovery file validation.
+- generate disposable keypairs: done,
+- generate nonce keypairs: done,
+- encrypt secrets with passphrase: done,
+- verify decrypt-before-funding: done,
+- never print secret keys: done,
+- add recovery file validation: done.
 
 Deliverable:
 
-- encrypted key storage with tests.
+- `dispenser prepare --run <run-id> --secrets-only` writes encrypted key storage and verifies it before any funding exists.
 
 ## Phase 5 - Prepare Flow
 
