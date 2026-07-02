@@ -66,14 +66,28 @@ cargo_build_sbf::post_processing: undefined and not known syscalls ["abort", "so
 called `Result::unwrap()` on an `Err` value: Os { code: 1314, kind: Uncategorized, message: "Клиент не обладает требуемыми правами." }
 ```
 
+Additional manual admin PowerShell attempts removed the Windows error 1314 blocker, but `solana-test-validator` still exits before RPC startup while unpacking the genesis archive:
+
+```text
+Error: failed to start validator: Failed to create ledger at C:\tmp\sol-dispenser-test-ledger: io error: Error checking to unpack genesis archive: IO error: Отказано в доступе. (os error 5)
+```
+
+The runner was updated after those attempts to:
+
+- avoid creating the ledger directory before validator startup,
+- use a configurable ledger directory via `DISPENSER_TEST_LEDGER_DIR`,
+- pass the test wallet public key to `--mint`,
+- print a clear Windows filesystem-access hint when this genesis unpack failure occurs.
+
 ## Known Blocker
 
-`solana-test-validator` cannot start in the current Windows session because the process lacks a required OS privilege. This happens before RPC is available, so the new integration tests could not prove or disprove the runtime effect of the `cargo-build-sbf` syscall warning.
+`solana-test-validator` cannot start in the current Windows session. Admin PowerShell gets past the original privilege error 1314, but validator still cannot unpack its genesis archive into either `%TEMP%` or `C:\tmp` because Windows returns access denied. This happens before RPC is available, so the new integration tests could not prove or disprove the runtime effect of the `cargo-build-sbf` syscall warning.
 
 Likely next environment fixes:
 
 - run the test command from an elevated terminal,
 - enable Windows Developer Mode if the failure is symlink-related,
+- allow `solana-test-validator.exe` / the Solana release directory in Windows Security if controlled folder access or antivirus is blocking archive unpack,
 - or run the local validator test suite in WSL/Linux.
 
 ## Exact Next Step
