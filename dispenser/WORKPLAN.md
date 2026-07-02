@@ -24,13 +24,14 @@ Status: in progress
 
 Tasks:
 
-- implement `fund_bundle_accounts`,
-- validate remaining account pairs,
-- fund disposable wallets,
-- create durable nonce accounts,
-- set nonce authority to disposable wallets,
-- add error codes,
-- add Anchor tests.
+- implement `fund_bundle_accounts`: done,
+- validate remaining account pairs: done,
+- fund disposable wallets: done,
+- create durable nonce accounts: done,
+- set nonce authority to disposable wallets: done,
+- add error codes: done,
+- add Anchor tests: pending,
+- run `anchor build`: blocked until toolchain is installed.
 
 Deliverable:
 
