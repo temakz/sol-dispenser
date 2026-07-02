@@ -12,7 +12,12 @@ no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
 cpi = ["no-entrypoint"]
+custom-heap = []
+custom-panic = []
+anchor-debug = []
+idl-build = ["anchor-lang/idl-build"]
 default = []
 
 [dependencies]
-anchor-lang = "0.29.0"
+anchor-lang = "1.1.2"
+solana-sysvar = "3.1.1"

@@ -1,9 +1,11 @@
+[toolchain]
+
 [features]
-seeds = false
+resolution = true
 skip-lint = false
 
 [programs.devnet]
-sol_dispenser = "11111111111111111111111111111111"
+sol_dispenser = "AAhQxVMHPchqdmcyZSjdKRLBN2SBBYnZBc9HdWsGUQTv"
 
 [registry]
 url = "https://api.apr.dev"

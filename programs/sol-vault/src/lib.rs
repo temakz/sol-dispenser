@@ -1,8 +1,7 @@
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::{program::invoke, system_instruction};
 use anchor_lang::system_program;
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("AAhQxVMHPchqdmcyZSjdKRLBN2SBBYnZBc9HdWsGUQTv");
 
 const MAX_BUNDLE_ACCOUNTS: usize = 16;
 const NONCE_ACCOUNT_SPACE: u64 = 80;
@@ -18,8 +17,8 @@ pub mod sol_dispenser {
     ///
     /// The nonce authority is set to the matching disposable wallet so later
     /// bundle transactions can be signed by that disposable keypair.
-    pub fn fund_bundle_accounts(
-        ctx: Context<FundBundleAccounts>,
+    pub fn fund_bundle_accounts<'info>(
+        ctx: Context<'info, FundBundleAccounts<'info>>,
         disposable_amounts: Vec<u64>,
     ) -> Result<()> {
         let account_count = disposable_amounts.len();
@@ -78,7 +77,7 @@ pub mod sol_dispenser {
 
             system_program::transfer(
                 CpiContext::new(
-                    ctx.accounts.system_program.to_account_info(),
+                    ctx.accounts.system_program.key(),
                     system_program::Transfer {
                         from: ctx.accounts.funder.to_account_info(),
                         to: disposable_wallet.to_account_info(),
@@ -87,30 +86,18 @@ pub mod sol_dispenser {
                 amount,
             )?;
 
-            invoke(
-                &system_instruction::create_account(
-                    &ctx.accounts.funder.key(),
-                    nonce_account.key,
-                    nonce_rent,
-                    NONCE_ACCOUNT_SPACE,
-                    &system_program::ID,
+            system_program::create_nonce_account(
+                CpiContext::new(
+                    ctx.accounts.system_program.key(),
+                    system_program::CreateNonceAccount {
+                        from: ctx.accounts.funder.to_account_info(),
+                        nonce: nonce_account.to_account_info(),
+                        recent_blockhashes: ctx.accounts.recent_blockhashes.to_account_info(),
+                        rent: ctx.accounts.rent.to_account_info(),
+                    },
                 ),
-                &[
-                    ctx.accounts.funder.to_account_info(),
-                    nonce_account.to_account_info(),
-                ],
-            )?;
-
-            invoke(
-                &system_instruction::initialize_nonce_account(
-                    nonce_account.key,
-                    disposable_wallet.key,
-                ),
-                &[
-                    nonce_account.to_account_info(),
-                    ctx.accounts.recent_blockhashes.to_account_info(),
-                    ctx.accounts.rent.to_account_info(),
-                ],
+                nonce_rent,
+                disposable_wallet.key,
             )?;
 
             msg!(
@@ -132,7 +119,7 @@ pub struct FundBundleAccounts<'info> {
     pub funder: Signer<'info>,
 
     /// CHECK: Required by the System Program durable nonce initializer.
-    #[account(address = anchor_lang::solana_program::sysvar::recent_blockhashes::ID)]
+    #[account(address = solana_sysvar::recent_blockhashes::ID)]
     pub recent_blockhashes: UncheckedAccount<'info>,
 
     pub rent: Sysvar<'info, Rent>,

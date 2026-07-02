@@ -36,6 +36,7 @@ const commands = new Map([
   ["init", commandInit],
   ["plan", commandPlan],
   ["prepare", commandPrepare],
+  ["build-program", commandBuildProgram],
 ]);
 
 async function main() {
@@ -60,6 +61,7 @@ Usage:
   dispenser init [--force]
   dispenser plan [--total SOL] [--wallets N] [--recipient ADDRESS:SOL]
   dispenser prepare --run RUN_ID --secrets-only
+  dispenser build-program
   dispenser help
 
 Current phase:
@@ -75,7 +77,7 @@ function commandDoctor() {
     checkCommand("git", ["--version"], true),
     checkCommand("cargo", ["--version"], false),
     checkCommand("solana", ["--version"], false),
-    checkCommand("anchor", ["--version"], false),
+    checkTool("anchor", anchorCandidates(), false),
   ];
 
   const configCheck = {
@@ -99,6 +101,23 @@ function commandDoctor() {
   }
 
   process.exitCode = requiredFailed ? 1 : 0;
+}
+
+function commandBuildProgram() {
+  const anchor = findRunnableTool(anchorCandidates());
+  if (!anchor) {
+    log("error", "Anchor CLI not found. Run dispenser doctor and fix the Anchor toolchain first.");
+    process.exitCode = 1;
+    return;
+  }
+
+  const result = spawnSync(anchor.command, ["build"], {
+    cwd: repoRoot,
+    shell: process.platform === "win32",
+    stdio: "inherit",
+  });
+
+  process.exitCode = result.status ?? 1;
 }
 
 function commandInit(args) {
@@ -259,27 +278,51 @@ function commandPrepare(args) {
 }
 
 function checkCommand(command, args, required) {
-  const result = spawnSync(command, args, {
-    cwd: repoRoot,
-    encoding: "utf8",
-    shell: process.platform === "win32",
-  });
+  return checkTool(command, [{ command, args }], required);
+}
 
-  if (result.status === 0) {
+function anchorCandidates() {
+  return [
+    { command: "anchor", args: ["--version"] },
+    {
+      command: join(process.env.USERPROFILE ?? "", ".avm", "bin", "anchor-1.1.2.exe"),
+      args: ["--version"],
+      label: "avm anchor-1.1.2",
+    },
+  ];
+}
+
+function checkTool(name, candidates, required) {
+  const runnable = findRunnableTool(candidates);
+  if (runnable) {
     return {
-      name: command,
+      name,
       ok: true,
       required,
-      detail: firstLine(result.stdout) || firstLine(result.stderr) || "ok",
+      detail: runnable.label ? `${runnable.detail} (${runnable.label})` : runnable.detail,
     };
   }
 
-  return {
-    name: command,
-    ok: false,
-    required,
-    detail: "not found or not runnable",
-  };
+  return { name, ok: false, required, detail: "not found or not runnable" };
+}
+
+function findRunnableTool(candidates) {
+  for (const candidate of candidates) {
+    const result = spawnSync(candidate.command, candidate.args, {
+      cwd: repoRoot,
+      encoding: "utf8",
+      shell: process.platform === "win32",
+    });
+
+    if (result.status === 0) {
+      return {
+        ...candidate,
+        detail: firstLine(result.stdout) || firstLine(result.stderr) || "ok",
+      };
+    }
+  }
+
+  return null;
 }
 
 function printChecks(checks) {

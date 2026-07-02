@@ -10,7 +10,7 @@
     "dispenser": "node ./bin/dispenser.mjs",
     "doctor": "node ./bin/dispenser.mjs doctor",
     "init": "node ./bin/dispenser.mjs init",
-    "build:program": "anchor build"
+    "build:program": "node ./bin/dispenser.mjs build-program"
   },
   "engines": {
     "node": ">=22"

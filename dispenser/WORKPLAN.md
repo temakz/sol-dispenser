@@ -10,7 +10,7 @@ Tasks:
 - add `.gitignore`: done,
 - add docs baseline: done,
 - decide package manager: npm,
-- confirm Anchor and Solana CLI versions: checked, missing in current shell,
+- confirm Anchor and Solana CLI versions: done,
 - confirm target cluster policy: local validator -> devnet -> mainnet with explicit confirmation.
 
 Deliverable:
@@ -31,7 +31,8 @@ Tasks:
 - set nonce authority to disposable wallets: done,
 - add error codes: done,
 - add Anchor tests: pending,
-- run `anchor build`: blocked until toolchain is installed.
+- run `anchor build`: done with Anchor `1.1.2` and Solana CLI `3.1.10`,
+- investigate `cargo-build-sbf` post-processing syscall warning: pending.
 
 Deliverable:
 

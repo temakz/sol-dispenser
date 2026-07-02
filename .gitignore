@@ -2,6 +2,7 @@
 node_modules/
 target/
 .anchor/
+.tools/
 
 # Local wallets and generated keys
 wallet.json

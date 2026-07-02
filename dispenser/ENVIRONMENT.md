@@ -9,14 +9,33 @@ Available:
 - Node.js: `v22.13.1`
 - npm: `10.9.2`
 - git: available
-- rustup: `1.29.0`, installed at `%USERPROFILE%\.cargo\bin\rustup.exe`
+- rustup: `1.29.0`
+- cargo: `1.96.1`
+- rustc: `1.96.1`
+- Solana CLI: `3.1.10`
+- agave-install: `3.1.10`
+- cargo-build-sbf: `3.1.10`
+- platform-tools: `v1.52`
+- AVM: `1.1.2`
+- Anchor CLI: `1.1.2`, runnable through `%USERPROFILE%\.avm\bin\anchor-1.1.2.exe`
+- Visual Studio Build Tools 2026: `18.7.3`
+- MSVC tools: `14.51.36231`
 
-Missing in current shell:
+Missing:
 
-- Anchor CLI: `anchor` not found
-- Solana CLI: `solana` not found
-- Rust/Cargo toolchain: `cargo` and `rustc` not active because stable toolchain download failed
 - GitHub CLI: `gh` not found
+
+Windows AVM note:
+
+- AVM symlink creation can fail without Developer Mode/admin symlink privileges.
+- Use the direct binary when needed: `%USERPROFILE%\.avm\bin\anchor-1.1.2.exe`.
+- The project `doctor` command checks this direct AVM binary as an Anchor fallback.
+
+Program build:
+
+- `anchor-1.1.2.exe build` completes and emits `target/deploy/sol_dispenser.so`.
+- IDL generation completes and emits `target/idl/sol_dispenser.json`.
+- `cargo-build-sbf` still prints a post-processing warning about undefined syscall names. Treat that as a Phase 1 follow-up before any devnet/mainnet funding flow; local validator tests must prove runtime behavior before real SOL is used.
 
 ## Package Manager
 
@@ -43,14 +62,16 @@ Mainnet must never be the default cluster.
 Install before Phase 1 verification:
 
 ```bash
-rustup toolchain install stable
-cargo install --git https://github.com/coral-xyz/anchor anchor-cli --locked
+rustup default stable
 solana --version
-anchor --version
+agave-install --version
+avm --version
+%USERPROFILE%\.avm\bin\anchor-1.1.2.exe --version
+cargo-build-sbf --version
 cargo --version
 ```
 
-Exact install commands may vary by OS. The project `doctor` command will eventually verify these automatically.
+Exact install commands may vary by OS. The project `doctor` command verifies these automatically where possible.
 
 ## Installation Attempts
 
