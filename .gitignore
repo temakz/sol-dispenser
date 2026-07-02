@@ -1,0 +1,24 @@
+# Dependencies and build output
+node_modules/
+target/
+.anchor/
+
+# Local wallets and generated keys
+wallet.json
+*.keypair.json
+bundle-accounts.json
+
+# Dispenser run artifacts and secrets
+runs/
+dispenser/runs/
+*.enc.json
+
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Logs and editor noise
+*.log
+.DS_Store
+Thumbs.db
