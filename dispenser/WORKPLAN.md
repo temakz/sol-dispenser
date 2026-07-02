@@ -2,20 +2,21 @@
 
 ## Phase 0 - Repository Setup
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- initialize git repository,
-- add `.gitignore`,
-- add docs baseline,
-- decide package manager,
-- confirm Anchor and Solana CLI versions,
-- confirm target cluster policy.
+- initialize git repository: done,
+- add `.gitignore`: done,
+- add docs baseline: done,
+- decide package manager: npm,
+- confirm Anchor and Solana CLI versions: checked, missing in current shell,
+- confirm target cluster policy: local validator -> devnet -> mainnet with explicit confirmation.
 
 Deliverable:
 
-- clean repo with first docs commit.
+- clean repo with first docs commit pushed to `origin/main`.
+- environment baseline recorded in `dispenser/ENVIRONMENT.md`.
 
 ## Phase 1 - Program Foundation
 
