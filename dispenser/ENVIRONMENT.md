@@ -9,12 +9,13 @@ Available:
 - Node.js: `v22.13.1`
 - npm: `10.9.2`
 - git: available
+- rustup: `1.29.0`, installed at `%USERPROFILE%\.cargo\bin\rustup.exe`
 
 Missing in current shell:
 
 - Anchor CLI: `anchor` not found
 - Solana CLI: `solana` not found
-- Rust/Cargo: `cargo` not found
+- Rust/Cargo toolchain: `cargo` and `rustc` not active because stable toolchain download failed
 - GitHub CLI: `gh` not found
 
 ## Package Manager
@@ -50,6 +51,21 @@ cargo --version
 ```
 
 Exact install commands may vary by OS. The project `doctor` command will eventually verify these automatically.
+
+## Installation Attempts
+
+Attempted on 2026-07-02:
+
+- Removed legacy untracked scaffold files: `README.md`, `client/`, `tsconfig.json`.
+- Downloaded and ran official Windows `rustup-init.exe`.
+- `rustup` installed successfully.
+- `rustup default stable` failed because `static.rust-lang.org` timed out with `os error 10060`.
+- Added `%USERPROFILE%\.cargo\bin` to User PATH for future shells.
+- Checked WSL: WSL component exists, but no usable distro was registered in the current user context.
+- `wsl --install -d Ubuntu-24.04 --name solana-ubuntu --no-launch` reported success under elevated context, but the current user context could not see that distro.
+- Non-elevated WSL distro install failed because Windows could not reach `raw.githubusercontent.com`.
+
+Do not use unofficial mirrors for Rust, Solana, or Anchor in this project without an explicit security review.
 
 ## GitHub
 
