@@ -20,8 +20,8 @@ Avoid mixing unrelated refactors with feature work.
 
 At the start of each session, read:
 
-1. `dispenser/WORKPLAN.md`
-2. `dispenser/SAFETY_AND_SPECS.md`
+1. `WORKPLAN.md`
+2. `SAFETY_AND_SPECS.md`
 3. latest handoff note, if present
 4. current git status
 
@@ -38,7 +38,7 @@ Before ending a session:
 1. run relevant tests or explain why they could not run,
 2. run formatting/lint checks if available,
 3. inspect git diff,
-4. update `dispenser/WORKPLAN.md` statuses if needed,
+4. update `WORKPLAN.md` statuses if needed,
 5. create or update a handoff note when work is incomplete,
 6. commit finished work when git is available and user approved the scope.
 
@@ -47,8 +47,8 @@ Before ending a session:
 Use:
 
 ```text
-dispenser/handoffs/handoff_001.md
-dispenser/handoffs/handoff_002.md
+handoffs/handoff_001.md
+handoffs/handoff_002.md
 ...
 ```
 

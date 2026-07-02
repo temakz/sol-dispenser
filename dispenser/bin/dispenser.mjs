@@ -18,14 +18,14 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const configPath = join(repoRoot, "dispenser.config.json");
-const runsDir = join(repoRoot, "dispenser", "runs");
+const runsDir = join(repoRoot, "runs");
 
 const defaultConfig = {
   cluster: "devnet",
   rpcUrl: "https://api.devnet.solana.com",
   sourceWalletPath: "./wallet.json",
   rescueWallet: "",
-  programId: "11111111111111111111111111111111",
+  programId: "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6",
   maxSolPerRun: "1.0",
   requireMainnetTypedConfirmation: true,
 };

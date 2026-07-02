@@ -21,6 +21,7 @@ Verified on 2026-07-02:
 Use the direct AVM binary on Windows:
 
 ```powershell
+cd C:\Code5\sol-contract\dispenser
 $env:PATH += ";$env:USERPROFILE\.cargo\bin;$env:USERPROFILE\.local\share\solana\install\releases\3.1.10\solana-release\bin"
 & "$env:USERPROFILE\.avm\bin\anchor-1.1.2.exe" build
 ```

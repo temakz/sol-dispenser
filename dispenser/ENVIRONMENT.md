@@ -4,6 +4,12 @@
 
 Checked on 2026-07-02.
 
+Project root:
+
+- `C:\Code5\sol-contract\dispenser`
+- Run project commands from this directory.
+- The parent `C:\Code5\sol-contract` is only the git container and should not contain app source files.
+
 Available:
 
 - Node.js: `v22.13.1`
@@ -33,6 +39,7 @@ Windows AVM note:
 
 Program build:
 
+- Run from `C:\Code5\sol-contract\dispenser`.
 - `anchor-1.1.2.exe build` completes and emits `target/deploy/sol_dispenser.so`.
 - IDL generation completes and emits `target/idl/sol_dispenser.json`.
 - `cargo-build-sbf` still prints a post-processing warning about undefined syscall names. Treat that as a Phase 1 follow-up before any devnet/mainnet funding flow; local validator tests must prove runtime behavior before real SOL is used.

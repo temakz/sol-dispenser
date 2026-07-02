@@ -5,10 +5,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-sol_dispenser = "AAhQxVMHPchqdmcyZSjdKRLBN2SBBYnZBc9HdWsGUQTv"
-
-[registry]
-url = "https://api.apr.dev"
+sol_dispenser = "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6"
 
 [provider]
 cluster = "devnet"

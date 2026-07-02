@@ -16,7 +16,7 @@ Tasks:
 Deliverable:
 
 - clean repo with first docs commit pushed to `origin/main`.
-- environment baseline recorded in `dispenser/ENVIRONMENT.md`.
+- environment baseline recorded in `ENVIRONMENT.md`.
 
 ## Phase 1 - Program Foundation
 
@@ -71,7 +71,7 @@ Tasks:
 
 Deliverable:
 
-- reproducible bundle plan file in `dispenser/runs/<run-id>/bundle-plan.json`.
+- reproducible bundle plan file in `runs/<run-id>/bundle-plan.json`.
 
 ## Phase 4 - Secret Vault
 
