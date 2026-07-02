@@ -1,0 +1,18 @@
+{
+  "name": "sol-dispenser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "dispenser": "./bin/dispenser.mjs"
+  },
+  "scripts": {
+    "dispenser": "node ./bin/dispenser.mjs",
+    "doctor": "node ./bin/dispenser.mjs doctor",
+    "init": "node ./bin/dispenser.mjs init",
+    "build:program": "anchor build"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

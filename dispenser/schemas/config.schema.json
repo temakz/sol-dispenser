@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/temakz/sol-dispenser/dispenser/schemas/config.schema.json",
+  "title": "DispenserConfig",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "cluster",
+    "rpcUrl",
+    "sourceWalletPath",
+    "rescueWallet",
+    "programId",
+    "maxSolPerRun",
+    "requireMainnetTypedConfirmation"
+  ],
+  "properties": {
+    "cluster": {
+      "type": "string",
+      "enum": ["localnet", "devnet", "mainnet-beta"]
+    },
+    "rpcUrl": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceWalletPath": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rescueWallet": {
+      "type": "string"
+    },
+    "programId": {
+      "type": "string",
+      "minLength": 32
+    },
+    "maxSolPerRun": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]{1,9})?$"
+    },
+    "requireMainnetTypedConfirmation": {
+      "const": true
+    }
+  }
+}

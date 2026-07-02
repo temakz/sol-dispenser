@@ -39,20 +39,20 @@ Deliverable:
 
 ## Phase 2 - CLI Foundation
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- create CLI entrypoint,
-- add command router,
-- add config loader,
-- add structured logging,
-- add run directory creation,
-- add JSON schemas.
+- create CLI entrypoint: done,
+- add command router: done,
+- add config loader: done,
+- add structured logging: done,
+- add run directory creation: done,
+- add JSON schemas: done.
 
 Deliverable:
 
-- `dispenser doctor` and `dispenser init` work locally.
+- `npm run doctor` and `npm run init` work locally.
 
 ## Phase 3 - Planning Flow
 

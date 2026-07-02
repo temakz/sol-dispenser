@@ -11,6 +11,7 @@ bundle-accounts.json
 # Dispenser run artifacts and secrets
 runs/
 dispenser/runs/
+dispenser.config.json
 *.enc.json
 
 # Local environment
