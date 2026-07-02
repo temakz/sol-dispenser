@@ -29,7 +29,7 @@ if (!solanaTestValidator) {
   process.exit(1);
 }
 
-const buildResult = spawnSync(anchor, ["build"], {
+const buildResult = spawnSync(anchor, ["build", "--ignore-keys"], {
   cwd: repoRoot,
   env: toolEnv(),
   shell: process.platform === "win32",

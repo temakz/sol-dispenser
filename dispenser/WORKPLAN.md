@@ -20,7 +20,7 @@ Deliverable:
 
 ## Phase 1 - Program Foundation
 
-Status: in progress
+Status: completed
 
 Tasks:
 
@@ -30,9 +30,9 @@ Tasks:
 - create durable nonce accounts: done,
 - set nonce authority to disposable wallets: done,
 - add error codes: done,
-- add Anchor tests: added; local validator execution blocked by Windows privilege error 1314,
+- add Anchor tests: done; WSL local validator tests passed,
 - run `anchor build`: done with Anchor `1.1.2` and Solana CLI `3.1.10`,
-- investigate `cargo-build-sbf` post-processing syscall warning: pending.
+- investigate `cargo-build-sbf` post-processing syscall warning: Windows toolchain warning documented; WSL local validator flow passed.
 
 Deliverable:
 

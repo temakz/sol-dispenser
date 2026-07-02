@@ -2,7 +2,7 @@
 
 ## Status
 
-Session closed on 2026-07-02 with integration test scaffolding added, but local validator execution blocked by the Windows environment.
+Session updated on 2026-07-02 after WSL local validator verification passed.
 
 Active project root:
 
@@ -19,7 +19,7 @@ No mainnet or real SOL was used.
 - Added `npm run test:program`.
 - Added `bin/anchor-local-test.mjs` to:
   - generate an ignored local test wallet,
-  - run `anchor build`,
+  - run `anchor build --ignore-keys`,
   - start `solana-test-validator` with the built program loaded via `--bpf-program`,
   - run mocha tests against `http://127.0.0.1:8899`.
 - Added `tests/fund_bundle_accounts.cjs` covering:
@@ -31,6 +31,12 @@ No mainnet or real SOL was used.
   - duplicate account rejection.
 - Added npm dev dependencies and lockfile for `@solana/web3.js` and `mocha`.
 - Updated the CLI tool runner to include local Cargo and Solana CLI paths when spawning child tools.
+
+Follow-up runner fixes:
+
+- use `anchor build --ignore-keys` so WSL test copies do not rewrite the fixed source program id,
+- keep test ledger location configurable with `DISPENSER_TEST_LEDGER_DIR`,
+- print a clear Windows filesystem-access hint when validator cannot unpack genesis.
 
 ## Commands Run
 
@@ -52,7 +58,7 @@ Because this Codex sandbox cannot write to npm cache, `.rustup`, or validator le
 - `npm.cmd install`: passed with approval; generated `package-lock.json`.
 - `npm.cmd run doctor`: passed; detects Node, npm, git, Cargo, Solana CLI `3.1.10`, and Anchor CLI `1.1.2`.
 - `npm.cmd run build:program`: passed with approval.
-- Build warning remains:
+- Windows build warning remains:
 
 ```text
 cargo_build_sbf::post_processing: undefined and not known syscalls ["abort", "sol_log_", "sol_panic_", "sol_memcpy_", "sol_invoke_signed_rust", "sol_get_rent_sysvar", "sol_log_pubkey"]
@@ -79,9 +85,37 @@ The runner was updated after those attempts to:
 - pass the test wallet public key to `--mint`,
 - print a clear Windows filesystem-access hint when this genesis unpack failure occurs.
 
+WSL verification from `~/sol-dispenser-test`:
+
+```bash
+npm ci
+npm run doctor
+npm run test:program
+```
+
+Results:
+
+- `npm ci`: passed in Linux-native project copy.
+- `npm run doctor`: passed with Node `v22.23.1`, npm `10.9.8`, Cargo `1.96.1`, Solana CLI `3.1.10`, and Anchor CLI `1.1.2`.
+- `npm run test:program`: passed.
+
+Local validator test output:
+
+```text
+fund_bundle_accounts
+  ✔ funds disposable wallets and creates durable nonce accounts
+  ✔ rejects zero disposable amounts before moving funds
+  ✔ rejects remaining account count mismatches
+  ✔ rejects duplicate bundle accounts
+
+4 passing
+```
+
 ## Known Blocker
 
-`solana-test-validator` cannot start in the current Windows session. Admin PowerShell gets past the original privilege error 1314, but validator still cannot unpack its genesis archive into either `%TEMP%` or `C:\tmp` because Windows returns access denied. This happens before RPC is available, so the new integration tests could not prove or disprove the runtime effect of the `cargo-build-sbf` syscall warning.
+`solana-test-validator` cannot start in the current Windows session. Admin PowerShell gets past the original privilege error 1314, but validator still cannot unpack its genesis archive into either `%TEMP%` or `C:\tmp` because Windows returns access denied.
+
+This is no longer a program blocker because the same local validator test suite passed in WSL/Linux. Keep using WSL/Linux for validator tests unless the Windows filesystem/security issue is fixed.
 
 Likely next environment fixes:
 
@@ -92,12 +126,11 @@ Likely next environment fixes:
 
 ## Exact Next Step
 
-Run:
+For local validator verification, run from the WSL/Linux project copy:
 
-```powershell
-npm.cmd run test:program
+```bash
+cd ~/sol-dispenser-test
+npm run test:program
 ```
 
-from an environment where `solana-test-validator` can start. If the validator starts and the tests fail inside `fund_bundle_accounts`, inspect the program logs first, especially for the known undefined syscall warning.
-
-Do not proceed to Phase 5 prepare flow until these local validator tests pass.
+The Phase 1 on-chain test gate has passed. Next project step is Phase 5 prepare flow, still local validator/devnet only and no mainnet or real SOL.
