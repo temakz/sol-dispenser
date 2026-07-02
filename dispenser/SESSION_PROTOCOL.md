@@ -16,6 +16,18 @@ Each session must do one focused slice:
 
 Avoid mixing unrelated refactors with feature work.
 
+## Project Root Rule
+
+The project root is:
+
+```text
+C:\Code5\sol-contract\dispenser
+```
+
+Run project commands from this directory.
+
+The parent directory `C:\Code5\sol-contract` is only the git container. Do not add app source files, configs, build manifests, run artifacts, or generated project files outside `dispenser/`.
+
 ## Session Start Checklist
 
 At the start of each session, read:
