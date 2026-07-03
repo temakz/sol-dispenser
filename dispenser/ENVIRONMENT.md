@@ -2,7 +2,7 @@
 
 ## Current Local Check
 
-Checked on 2026-07-02.
+Checked on 2026-07-03.
 
 Project root:
 
@@ -42,7 +42,65 @@ Program build:
 - Run from `C:\Code5\sol-contract\dispenser`.
 - `anchor-1.1.2.exe build` completes and emits `target/deploy/sol_dispenser.so`.
 - IDL generation completes and emits `target/idl/sol_dispenser.json`.
-- `cargo-build-sbf` still prints a post-processing warning about undefined syscall names. Treat that as a Phase 1 follow-up before any devnet/mainnet funding flow; local validator tests must prove runtime behavior before real SOL is used.
+- Windows `cargo-build-sbf` still prints a post-processing warning about undefined syscall names.
+- The same program flow passed WSL local-validator tests, so the warning is documented as a Windows toolchain/runtime-reporting issue rather than a current Phase 1 blocker.
+
+## WSL Local Validator Environment
+
+Verified on 2026-07-03 using WSL distro:
+
+```text
+solana-ubuntu
+Ubuntu 24.04.4 LTS
+WSL2
+```
+
+Linux toolchain in WSL:
+
+- Node.js: `v22.23.1`
+- npm: `10.9.8`
+- cargo: `1.96.1`
+- rustc: `1.96.1`
+- Solana CLI: `3.1.10`
+- solana-test-validator: `3.1.10`
+- AVM: `1.1.2`
+- Anchor CLI: `1.1.2`
+
+WSL project test copy:
+
+```text
+~/sol-dispenser-test
+```
+
+The Windows project root remains the source of truth. The WSL copy is only a Linux-native test workspace because:
+
+- Linux `npm ci` on `/mnt/c/...` failed with `EPERM chmod`,
+- Windows `solana-test-validator` could not unpack its genesis archive even from admin PowerShell,
+- WSL/Linux local validator tests passed.
+
+Refresh the WSL test copy from Windows source with:
+
+```bash
+cd ~
+rm -rf sol-dispenser-test
+mkdir sol-dispenser-test
+rsync -a \
+  --exclude node_modules \
+  --exclude target \
+  --exclude runs \
+  --exclude dispenser.config.json \
+  /mnt/c/Code5/sol-contract/dispenser/ \
+  ~/sol-dispenser-test/
+cd ~/sol-dispenser-test
+npm ci
+```
+
+Run local-validator tests in WSL with:
+
+```bash
+cd ~/sol-dispenser-test
+npm run test:program
+```
 
 ## Package Manager
 
