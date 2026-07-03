@@ -12,7 +12,7 @@ import {
   publicKeyFromSeed,
   validatePlan,
   verifySecrets,
-} from "../bin/dispenser.mjs";
+} from "../lib/cli-core.mjs";
 
 const PROGRAM_ID = "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6";
 const SOURCE = "6c1STbfjnRkEXa1AoBoWWsGDEDGyAH5kGQhavsoedbDg";
