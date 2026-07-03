@@ -11,6 +11,7 @@
     "doctor": "node ./bin/dispenser.mjs doctor",
     "init": "node ./bin/dispenser.mjs init",
     "build:program": "node ./bin/dispenser.mjs build-program",
+    "test": "node --test tests/*.test.mjs",
     "test:program": "node ./bin/anchor-local-test.mjs"
   },
   "devDependencies": {

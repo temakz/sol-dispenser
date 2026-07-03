@@ -92,18 +92,18 @@ Deliverable:
 
 ## Phase 5 - Prepare Flow
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- estimate rent and fees,
-- preflight source wallet balance,
-- build `fund_bundle_accounts` transaction,
-- support dry-run,
-- send transaction,
-- verify balances,
-- verify nonce state,
-- write prepare report.
+- estimate rent and fees: done,
+- preflight source wallet balance: done,
+- build `fund_bundle_accounts` transaction: done,
+- support dry-run: done,
+- send transaction: done,
+- verify balances: done,
+- verify nonce state: done,
+- write prepare report: done.
 
 Deliverable:
 
@@ -111,16 +111,16 @@ Deliverable:
 
 ## Phase 6 - Inspect Flow
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- show source wallet balance,
-- show disposable balances,
-- show nonce account state,
-- show recipient status,
-- show recoverable funds,
-- detect mismatch from plan.
+- show source wallet balance: done,
+- show disposable balances: done,
+- show nonce account state: done,
+- show recipient status: done,
+- show recoverable funds: done,
+- detect mismatch from plan: done.
 
 Deliverable:
 
@@ -128,17 +128,17 @@ Deliverable:
 
 ## Phase 7 - Execute Flow
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- build recipient transfers from disposable wallets,
-- use durable nonce,
-- sign with stored disposable keys,
-- support dry-run,
-- submit transactions,
-- verify transaction confirmation,
-- write execution report.
+- build recipient transfers from disposable wallets: done,
+- use durable nonce: done,
+- sign with stored disposable keys: done,
+- support dry-run: done,
+- submit transactions: done,
+- verify transaction confirmation: done,
+- write execution report: done.
 
 Deliverable:
 
@@ -146,16 +146,16 @@ Deliverable:
 
 ## Phase 8 - Recover Flow
 
-Status: pending
+Status: completed
 
 Tasks:
 
-- detect unspent balances,
-- build rescue transfers,
-- support dry-run,
-- send funds to rescue wallet,
-- optionally close nonce accounts later,
-- write recovery report.
+- detect unspent balances: done,
+- build rescue transfers: done,
+- support dry-run: done,
+- send funds to rescue wallet: done,
+- close nonce accounts: done,
+- write recovery report: done.
 
 Deliverable:
 
@@ -163,12 +163,12 @@ Deliverable:
 
 ## Phase 9 - Testing and Hardening
 
-Status: pending
+Status: in progress
 
 Tasks:
 
-- add unit tests,
-- add Anchor integration tests,
+- add unit tests: started with CLI helper regression tests,
+- add Anchor integration tests: done for `fund_bundle_accounts`; Windows runner still blocked, WSL path documented,
 - add CLI dry-run tests,
 - add local validator end-to-end test,
 - add devnet smoke runbook,
