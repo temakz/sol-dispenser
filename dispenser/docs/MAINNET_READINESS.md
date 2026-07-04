@@ -362,7 +362,7 @@ If `recover --confirm` fails or is interrupted:
 
 As of 2026-07-04, Phase 10 local guard and checklist work is complete pending
 explicit mainnet approval. The latest fresh devnet smoke run passed on runtime
-commit `24778aa` using run `20260704T132636Z`:
+commit `5f09acd` using run `20260704T171606Z`:
 
 - total output: `0.003 SOL`,
 - recipients: `2`,
@@ -374,13 +374,7 @@ commit `24778aa` using run `20260704T132636Z`:
 - `recover-report.json`: `recovered`,
 - final `inspect-report.json`: `ok`,
 - final recoverable amount: `0 SOL`,
-- final source balance: `0.76145324 SOL`.
-
-After that smoke run, an additional source-wallet guard was added: mainnet
-configs and plans must include `sourceWallet`, and the CLI verifies that
-`sourceWalletPath` derives to that public key before prepare, inspect, execute,
-or recover. Run a fresh devnet smoke on the new target commit before any
-mainnet send gate.
+- final source balance: `0.76138824 SOL`.
 
 A mainnet deployment, mainnet RPC verification, mainnet dry-run, and every
 mainnet send action each require separate explicit operator approval.
