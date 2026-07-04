@@ -6,6 +6,7 @@ target/
 
 # Local wallets and generated keys
 wallet.json
+wallet*.json
 *.keypair.json
 bundle-accounts.json
 
