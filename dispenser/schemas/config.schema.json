@@ -4,6 +4,24 @@
   "title": "DispenserConfig",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "cluster": { "const": "mainnet-beta" }
+        },
+        "required": ["cluster"]
+      },
+      "then": {
+        "properties": {
+          "rescueWallet": {
+            "type": "string",
+            "minLength": 32
+          }
+        }
+      }
+    }
+  ],
   "required": [
     "cluster",
     "rpcUrl",
@@ -20,6 +38,7 @@
     },
     "rpcUrl": {
       "type": "string",
+      "format": "uri",
       "minLength": 1
     },
     "sourceWalletPath": {
@@ -27,11 +46,12 @@
       "minLength": 1
     },
     "rescueWallet": {
-      "type": "string"
+      "type": "string",
+      "pattern": "^$|^[1-9A-HJ-NP-Za-km-z]{32,44}$"
     },
     "programId": {
       "type": "string",
-      "minLength": 32
+      "pattern": "^[1-9A-HJ-NP-Za-km-z]{32,44}$"
     },
     "maxSolPerRun": {
       "type": "string",

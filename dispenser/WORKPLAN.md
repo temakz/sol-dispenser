@@ -181,16 +181,16 @@ Deliverable:
 
 ## Phase 10 - Mainnet Readiness
 
-Status: pending
+Status: in progress
 
 Tasks:
 
-- audit configs,
-- verify program id consistency,
+- audit configs: in progress; added stricter local config validation,
+- verify program id consistency: repo-local test added,
 - run devnet smoke test,
 - review secret handling,
-- add mainnet typed confirmation,
-- document emergency recovery.
+- add mainnet typed confirmation: existing send gates covered by tests,
+- document emergency recovery: initial checklist added.
 
 Deliverable:
 

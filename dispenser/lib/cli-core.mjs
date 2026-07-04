@@ -120,6 +120,9 @@ export function validatePlan(plan) {
   if (plan.rescueWallet && !isSolanaPubkey(plan.rescueWallet)) {
     throw new Error("Invalid rescue wallet");
   }
+  if (plan.cluster === "mainnet-beta" && !plan.rescueWallet) {
+    throw new Error("mainnet-beta plans require an explicit rescue wallet");
+  }
   if (plan.walletCount !== plan.recipients.length) {
     throw new Error("walletCount must equal recipients length");
   }
@@ -200,9 +203,56 @@ export function validateConfig(config) {
   if (!["localnet", "devnet", "mainnet-beta"].includes(config.cluster)) {
     throw new Error("cluster must be localnet, devnet, or mainnet-beta");
   }
+  validateRpcUrlForCluster(config.rpcUrl, config.cluster);
+
+  if (!isSolanaPubkey(config.programId)) {
+    throw new Error("programId must be a Solana public key");
+  }
+
+  if (config.rescueWallet && !isSolanaPubkey(config.rescueWallet)) {
+    throw new Error("rescueWallet must be empty or a Solana public key");
+  }
+
+  if (config.cluster === "mainnet-beta" && !config.rescueWallet) {
+    throw new Error("mainnet-beta requires an explicit rescueWallet");
+  }
 
   if (config.requireMainnetTypedConfirmation !== true) {
     throw new Error("requireMainnetTypedConfirmation must be true");
+  }
+
+  const maxLamports = parseSolToLamports(config.maxSolPerRun);
+  if (maxLamports <= 0n) {
+    throw new Error("maxSolPerRun must be greater than zero");
+  }
+}
+
+export function validateRpcUrlForCluster(rpcUrl, cluster) {
+  let url = null;
+  try {
+    url = new URL(rpcUrl);
+  } catch {
+    throw new Error("rpcUrl must be a valid URL");
+  }
+
+  if (!["http:", "https:"].includes(url.protocol)) {
+    throw new Error("rpcUrl must use http or https");
+  }
+
+  const target = `${url.hostname}${url.pathname}`.toLowerCase();
+  const isLocal = ["localhost", "127.0.0.1", "::1", "[::1]"].includes(url.hostname.toLowerCase());
+  const looksDevnet = target.includes("devnet");
+  const looksTestnet = target.includes("testnet");
+  const looksMainnet = target.includes("mainnet");
+
+  if (cluster === "localnet" && !isLocal) {
+    throw new Error("localnet rpcUrl must point to localhost, 127.0.0.1, or ::1");
+  }
+  if (cluster === "devnet" && (looksMainnet || isLocal)) {
+    throw new Error("devnet rpcUrl must not point to mainnet or localnet");
+  }
+  if (cluster === "mainnet-beta" && (looksDevnet || looksTestnet || isLocal)) {
+    throw new Error("mainnet-beta rpcUrl must not point to devnet, testnet, or localnet");
   }
 }
 

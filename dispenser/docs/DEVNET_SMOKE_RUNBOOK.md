@@ -3,6 +3,7 @@
 ## Boundary
 
 This runbook is for devnet only. Do not point these commands at `mainnet-beta`.
+Use `docs/MAINNET_READINESS.md` for the separate mainnet approval checklist.
 
 Use a disposable source wallet with a small devnet balance. Do not use production
 wallets, production recipients, or API keys that are not intended for test work.

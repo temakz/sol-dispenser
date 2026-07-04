@@ -104,7 +104,7 @@ Usage:
   dispenser help
 
 Current phase:
-  Phase 6 inspect flow. Prepare remains gated by --dry-run and --confirm.
+  Phase 10 mainnet-readiness review. Mainnet remains gated by typed confirmation.
 `);
 }
 
@@ -179,7 +179,7 @@ function commandInit(args) {
 
 async function commandPlan(args) {
   const flags = parseFlags(args);
-  const config = loadConfigIfPresent() ?? defaultConfig;
+  const config = loadConfigIfPresent({ strict: true }) ?? defaultConfig;
   const answers = await collectPlanInput(flags);
   const recipients = answers.recipients.map((recipient, index) => ({
     index,
@@ -189,6 +189,12 @@ async function commandPlan(args) {
   }));
 
   const totalLamports = parseSolToLamports(answers.totalSol);
+  const maxLamports = parseSolToLamports(config.maxSolPerRun);
+  if (totalLamports > maxLamports) {
+    throw new Error(
+      `Total ${formatLamports(totalLamports)} SOL exceeds maxSolPerRun ${formatLamports(maxLamports)} SOL`
+    );
+  }
   const recipientTotal = recipients.reduce(
     (sum, recipient) => sum + BigInt(recipient.amountLamports),
     0n
@@ -1385,7 +1391,7 @@ function printChecks(checks) {
   }
 }
 
-function loadConfigIfPresent() {
+function loadConfigIfPresent(options = {}) {
   if (!existsSync(configPath)) {
     return null;
   }
@@ -1395,6 +1401,9 @@ function loadConfigIfPresent() {
     validateConfig(config);
     return config;
   } catch (error) {
+    if (options.strict) {
+      throw new Error(`Invalid ${relative(configPath)}: ${error.message}`);
+    }
     log("error", `Invalid ${relative(configPath)}: ${error.message}`);
     return null;
   }
@@ -1863,4 +1872,7 @@ export {
   buildPrepareTransactions,
   isRetryableRpcError,
   rpcCallWithRetry,
+  requireExecuteConfirmation,
+  requirePrepareConfirmation,
+  requireRecoverConfirmation,
 };

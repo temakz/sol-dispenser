@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
+import {
+  requireExecuteConfirmation,
+  requirePrepareConfirmation,
+  requireRecoverConfirmation,
+} from "../bin/dispenser.mjs";
 import {
   decryptJson,
   encryptJson,
@@ -10,7 +16,9 @@ import {
   parseRecipientFlag,
   parseSolToLamports,
   publicKeyFromSeed,
+  validateConfig,
   validatePlan,
+  validateRpcUrlForCluster,
   verifySecrets,
 } from "../lib/cli-core.mjs";
 
@@ -70,6 +78,61 @@ test("validatePlan accepts a minimal valid plan", () => {
   assert.doesNotThrow(() => validatePlan(validPlan()));
 });
 
+test("validateConfig rejects inconsistent mainnet-ready settings", () => {
+  assert.doesNotThrow(() => validateConfig(validConfig()));
+
+  assert.throws(() => validateConfig({
+    ...validConfig(),
+    cluster: "mainnet-beta",
+    rpcUrl: "https://api.mainnet-beta.solana.com",
+    rescueWallet: "",
+  }), /mainnet-beta requires an explicit rescueWallet/);
+
+  assert.throws(() => validateConfig({
+    ...validConfig(),
+    programId: "not-a-pubkey",
+  }), /programId must be a Solana public key/);
+
+  assert.throws(() => validateConfig({
+    ...validConfig(),
+    rescueWallet: "not-a-pubkey",
+  }), /rescueWallet must be empty or a Solana public key/);
+
+  assert.throws(() => validateConfig({
+    ...validConfig(),
+    maxSolPerRun: "0",
+  }), /maxSolPerRun must be greater than zero/);
+});
+
+test("validateRpcUrlForCluster rejects obvious cluster mismatches", () => {
+  assert.doesNotThrow(() => validateRpcUrlForCluster("https://api.devnet.solana.com", "devnet"));
+  assert.doesNotThrow(() => validateRpcUrlForCluster("https://api.mainnet-beta.solana.com", "mainnet-beta"));
+  assert.doesNotThrow(() => validateRpcUrlForCluster("http://127.0.0.1:8899", "localnet"));
+  assert.doesNotThrow(() => validateRpcUrlForCluster("http://[::1]:8899", "localnet"));
+
+  assert.throws(
+    () => validateRpcUrlForCluster("https://api.devnet.solana.com", "mainnet-beta"),
+    /mainnet-beta rpcUrl/
+  );
+  assert.throws(
+    () => validateRpcUrlForCluster("https://api.mainnet-beta.solana.com", "devnet"),
+    /devnet rpcUrl/
+  );
+  assert.throws(
+    () => validateRpcUrlForCluster("https://api.devnet.solana.com", "localnet"),
+    /localnet rpcUrl/
+  );
+});
+
+test("mainnet plans require an explicit rescue wallet", () => {
+  assert.throws(() => validatePlan({
+    ...validPlan(),
+    cluster: "mainnet-beta",
+    rpcUrl: "https://api.mainnet-beta.solana.com",
+    rescueWallet: "",
+  }), /mainnet-beta plans require an explicit rescue wallet/);
+});
+
 test("validatePlan rejects mismatched totals and too many wallets", () => {
   assert.throws(() => validatePlan({
     ...validPlan(),
@@ -88,6 +151,51 @@ test("validatePlan rejects mismatched totals and too many wallets", () => {
     totalLamports: "17",
     totalSol: "0.000000017",
   }), /walletCount must not exceed/);
+});
+
+test("mainnet send confirmations require exact typed guards", () => {
+  const plan = {
+    ...validPlan(),
+    cluster: "mainnet-beta",
+    rpcUrl: "https://api.mainnet-beta.solana.com",
+    rescueWallet: SOURCE,
+    totalSol: "0.000000001",
+  };
+  const flags = {
+    confirm: true,
+    confirmMainnet: "MAINNET",
+    confirmTotal: plan.totalSol,
+  };
+
+  assert.doesNotThrow(() => requirePrepareConfirmation(plan, flags));
+  assert.doesNotThrow(() => requireExecuteConfirmation(plan, flags));
+  assert.doesNotThrow(() => requireRecoverConfirmation(plan, flags));
+
+  assert.throws(
+    () => requirePrepareConfirmation(plan, { ...flags, confirmMainnet: "mainnet" }),
+    /mainnet prepare requires --confirm-mainnet MAINNET/
+  );
+  assert.throws(
+    () => requireExecuteConfirmation(plan, { ...flags, confirmTotal: "0.1" }),
+    /mainnet execute requires --confirm-total/
+  );
+  assert.throws(
+    () => requireRecoverConfirmation(plan, { ...flags, confirm: false }),
+    /recover send requires --confirm/
+  );
+});
+
+test("program id stays consistent across CLI, Anchor, Rust, and docs", () => {
+  const files = [
+    "bin/dispenser.mjs",
+    "Anchor.toml",
+    "programs/sol-vault/src/lib.rs",
+    "docs/DEVNET_SMOKE_RUNBOOK.md",
+  ];
+
+  for (const file of files) {
+    assert.match(readFileSync(file, "utf8"), new RegExp(PROGRAM_ID), file);
+  }
 });
 
 test("encryptJson round-trips without exposing plaintext fields", () => {
@@ -148,5 +256,17 @@ function validPlan() {
       amountSol: "0.000000001",
     }],
     status: "planned",
+  };
+}
+
+function validConfig() {
+  return {
+    cluster: "devnet",
+    rpcUrl: "https://api.devnet.solana.com",
+    sourceWalletPath: "./wallet.json",
+    rescueWallet: SOURCE,
+    programId: PROGRAM_ID,
+    maxSolPerRun: "1.0",
+    requireMainnetTypedConfirmation: true,
   };
 }
