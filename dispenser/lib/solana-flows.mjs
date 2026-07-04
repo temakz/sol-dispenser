@@ -328,6 +328,33 @@ export async function buildExecuteTransaction({
     await connection.getBalance(account.disposable.publicKey, "confirmed")
   );
   const recipientBalanceBeforeLamports = BigInt(await connection.getBalance(recipient, "confirmed"));
+  if (disposableBalanceLamports === 0n) {
+    const alreadyExecuted = recipientBalanceBeforeLamports >= account.amountLamports;
+    return {
+      index: account.index,
+      ok: alreadyExecuted,
+      alreadyExecuted,
+      detail: alreadyExecuted
+        ? "already executed"
+        : "disposable balance is empty before recipient balance reached planned amount",
+      disposablePublicKey: account.disposable.publicKey.toBase58(),
+      recipient: account.recipient,
+      amountLamports: account.amountLamports.toString(),
+      amountSol: formatLamports(account.amountLamports),
+      disposableBalanceLamports: disposableBalanceLamports.toString(),
+      disposableBalanceSol: formatLamports(disposableBalanceLamports),
+      recipientBalanceBeforeLamports: recipientBalanceBeforeLamports.toString(),
+      recipientBalanceBeforeSol: formatLamports(recipientBalanceBeforeLamports),
+      estimatedFeeLamports: "0",
+      estimatedFeeSol: "0",
+      simulation: {
+        attempted: false,
+        ok: alreadyExecuted,
+        error: null,
+        logs: [],
+      },
+    };
+  }
   const nonceInfo = await connection.getAccountInfo(account.nonce.publicKey, "confirmed");
   if (!nonceInfo) {
     return {

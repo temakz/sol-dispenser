@@ -192,6 +192,75 @@ test("buildExecuteTransaction fails safely when nonce account is missing", async
   assert.equal(Object.hasOwn(execution, "transaction"), false);
 });
 
+test("buildExecuteTransaction treats funded recipients and empty disposable wallets as already executed", async () => {
+  const source = keypair(33);
+  const disposable = keypair(34);
+  const nonce = keypair(35);
+  const recipient = keypair(36).publicKey;
+  const connection = new FakeConnection({
+    balances: [
+      [disposable.publicKey, 0],
+      [recipient, 100],
+    ],
+  });
+
+  const execution = await buildExecuteTransaction({
+    connection,
+    account: {
+      index: 0,
+      recipient: recipient.toBase58(),
+      amountLamports: 100n,
+      disposable,
+      nonce,
+    },
+    source,
+    NonceAccount,
+    PublicKey,
+    SystemProgram,
+    Transaction,
+  });
+
+  assert.equal(execution.ok, true);
+  assert.equal(execution.alreadyExecuted, true);
+  assert.equal(execution.detail, "already executed");
+  assert.equal(execution.estimatedFeeLamports, "0");
+  assert.equal(Object.hasOwn(execution, "transaction"), false);
+});
+
+test("buildExecuteTransaction fails safely when disposable funds are missing before recipient is funded", async () => {
+  const source = keypair(37);
+  const disposable = keypair(38);
+  const nonce = keypair(39);
+  const recipient = keypair(40).publicKey;
+  const connection = new FakeConnection({
+    balances: [
+      [disposable.publicKey, 0],
+      [recipient, 99],
+    ],
+  });
+
+  const execution = await buildExecuteTransaction({
+    connection,
+    account: {
+      index: 0,
+      recipient: recipient.toBase58(),
+      amountLamports: 100n,
+      disposable,
+      nonce,
+    },
+    source,
+    NonceAccount,
+    PublicKey,
+    SystemProgram,
+    Transaction,
+  });
+
+  assert.equal(execution.ok, false);
+  assert.equal(execution.alreadyExecuted, false);
+  assert.match(execution.detail, /disposable balance is empty/);
+  assert.equal(Object.hasOwn(execution, "transaction"), false);
+});
+
 test("buildExecuteTransaction fails safely when nonce authority is wrong", async () => {
   const source = keypair(22);
   const disposable = keypair(23);

@@ -163,17 +163,17 @@ Deliverable:
 
 ## Phase 9 - Testing and Hardening
 
-Status: in progress
+Status: completed
 
 Tasks:
 
-- add unit tests: started with CLI helper regression tests,
+- add unit tests: done with CLI helper, Solana flow, report lifecycle, and failure-mode coverage,
 - add Anchor integration tests: done for `fund_bundle_accounts`; Windows runner still blocked, WSL path documented,
-- add CLI dry-run tests,
+- add CLI dry-run tests: done via local-validator CLI E2E and report lifecycle regression coverage,
 - add local validator end-to-end test: added repeatable CLI prepare/execute/recover E2E script for WSL/local-validator,
 - add devnet smoke runbook: added `docs/DEVNET_SMOKE_RUNBOOK.md`,
-- add failure-mode tests: added Solana flow nonce authority failure coverage,
-- add CI workflow after GitHub repo exists.
+- add failure-mode tests: added Solana flow nonce authority and partial execute resume coverage,
+- add CI workflow after GitHub repo exists: added `.github/workflows/dispenser-ci.yml`.
 
 Deliverable:
 

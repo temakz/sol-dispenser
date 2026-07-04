@@ -45,6 +45,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
 const configPath = join(repoRoot, "dispenser.config.json");
 const runsDir = join(repoRoot, "runs");
+const MAX_TRANSACTION_SIZE_BYTES = 1232;
 
 const defaultConfig = {
   cluster: "devnet",
@@ -378,7 +379,7 @@ async function commandPrepareDryRun(flags) {
     await connection.getMinimumBalanceForRentExemption(NONCE_ACCOUNT_LENGTH, "confirmed")
   );
   const latestBlockhash = await connection.getLatestBlockhash("confirmed");
-  const transaction = buildFundBundleTransaction({
+  const prepareTransactions = buildPrepareTransactions({
     plan,
     programId,
     source,
@@ -390,8 +391,11 @@ async function commandPrepareDryRun(flags) {
     Transaction,
     TransactionInstruction,
   });
-  const feeResult = await connection.getFeeForMessage(transaction.compileMessage(), "confirmed");
-  const estimatedFeeLamports = BigInt(feeResult.value ?? estimateSignatureFeeLamports(transaction));
+  let estimatedFeeLamports = 0n;
+  for (const item of prepareTransactions) {
+    const feeResult = await connection.getFeeForMessage(item.transaction.compileMessage(), "confirmed");
+    estimatedFeeLamports += BigInt(feeResult.value ?? estimateSignatureFeeLamports(item.transaction));
+  }
   const sourceBalanceLamports = BigInt(await connection.getBalance(source.publicKey, "confirmed"));
   const totalOutputLamports = BigInt(plan.totalLamports);
   const totalNonceRentLamports = nonceRentLamports * BigInt(bundle.length);
@@ -400,25 +404,21 @@ async function commandPrepareDryRun(flags) {
   const accountPreflight = await inspectPrepareAccounts(connection, bundle, SystemProgram);
   const accountIssues = accountPreflight.filter((account) => !account.ok);
 
-  let simulation = {
-    attempted: false,
-    ok: false,
-    error: null,
-    logs: [],
-  };
+  const simulations = [];
 
   if (sourceBalanceOk && accountIssues.length === 0) {
-    const simulationResult = await connection.simulateTransaction(transaction, [
-      source,
-      ...uniqueBundleSigners(bundle),
-    ]);
-    simulation = {
-      attempted: true,
-      ok: simulationResult.value.err === null,
-      error: simulationResult.value.err,
-      logs: simulationResult.value.logs ?? [],
-    };
+    for (const item of prepareTransactions) {
+      const simulationResult = await connection.simulateTransaction(item.transaction);
+      simulations.push({
+        chunk: item.chunk,
+        attempted: true,
+        ok: simulationResult.value.err === null,
+        error: simulationResult.value.err,
+        logs: simulationResult.value.logs ?? [],
+      });
+    }
   }
+  const simulation = summarizeSimulations(simulations);
 
   const report = {
     schemaVersion: 1,
@@ -442,10 +442,14 @@ async function commandPrepareDryRun(flags) {
     sourceBalanceOk,
     accountPreflight,
     transaction: {
-      signerCount: 1 + uniqueBundleSigners(bundle).length,
-      instructionCount: transaction.instructions.length,
+      transactionCount: prepareTransactions.length,
+      signerCount: prepareTransactions.reduce((sum, item) => sum + item.signers.length, 0),
+      instructionCount: prepareTransactions.reduce((sum, item) => sum + item.transaction.instructions.length, 0),
+      maxSerializedBytes: Math.max(...prepareTransactions.map((item) => item.serializedBytes)),
     },
+    transactions: prepareTransactions.map(reportPrepareTransaction),
     simulation,
+    simulations,
   };
   writeJson(reportPath, report);
 
@@ -459,6 +463,7 @@ async function commandPrepareDryRun(flags) {
   console.log(`Estimated fees: ${formatLamports(estimatedFeeLamports)} SOL (${estimatedFeeLamports} lamports)`);
   console.log(`Total required: ${formatLamports(totalRequiredLamports)} SOL (${totalRequiredLamports} lamports)`);
   console.log(`Source balance: ${formatLamports(sourceBalanceLamports)} SOL (${sourceBalanceLamports} lamports)`);
+  console.log(`Prepare transactions: ${prepareTransactions.length}`);
   console.log(`Report: ${relative(reportPath)}`);
 
   if (!sourceBalanceOk) {
@@ -536,7 +541,7 @@ async function commandPrepareSubmit(flags) {
     await connection.getMinimumBalanceForRentExemption(NONCE_ACCOUNT_LENGTH, "confirmed")
   );
   const latestBlockhash = await connection.getLatestBlockhash("confirmed");
-  const transaction = buildFundBundleTransaction({
+  const prepareTransactions = buildPrepareTransactions({
     plan,
     programId,
     source,
@@ -548,8 +553,11 @@ async function commandPrepareSubmit(flags) {
     Transaction,
     TransactionInstruction,
   });
-  const feeResult = await connection.getFeeForMessage(transaction.compileMessage(), "confirmed");
-  const estimatedFeeLamports = BigInt(feeResult.value ?? estimateSignatureFeeLamports(transaction));
+  let estimatedFeeLamports = 0n;
+  for (const item of prepareTransactions) {
+    const feeResult = await connection.getFeeForMessage(item.transaction.compileMessage(), "confirmed");
+    estimatedFeeLamports += BigInt(feeResult.value ?? estimateSignatureFeeLamports(item.transaction));
+  }
   const sourceBalanceBeforeLamports = BigInt(await connection.getBalance(source.publicKey, "confirmed"));
   const totalOutputLamports = BigInt(plan.totalLamports);
   const totalNonceRentLamports = nonceRentLamports * BigInt(bundle.length);
@@ -557,25 +565,24 @@ async function commandPrepareSubmit(flags) {
   const sourceBalanceOk = sourceBalanceBeforeLamports >= totalRequiredLamports;
   const accountPreflight = await inspectPrepareAccounts(connection, bundle, SystemProgram);
   const accountIssues = accountPreflight.filter((account) => !account.ok);
-  const signers = [source, ...uniqueBundleSigners(bundle)];
 
-  transaction.sign(...signers);
-  const simulationResult = sourceBalanceOk && accountIssues.length === 0
-    ? await connection.simulateTransaction(transaction, signers)
-    : null;
-  const simulation = simulationResult
-    ? {
-      attempted: true,
-      ok: simulationResult.value.err === null,
-      error: simulationResult.value.err,
-      logs: simulationResult.value.logs ?? [],
+  const simulations = [];
+  if (sourceBalanceOk && accountIssues.length === 0) {
+    for (const item of prepareTransactions) {
+      const simulationResult = await connection.simulateTransaction(item.transaction);
+      simulations.push({
+        chunk: item.chunk,
+        attempted: true,
+        ok: simulationResult.value.err === null,
+        error: simulationResult.value.err,
+        logs: simulationResult.value.logs ?? [],
+      });
     }
-    : {
-      attempted: false,
-      ok: false,
-      error: null,
-      logs: [],
-    };
+  }
+  const simulation = summarizeSimulations(simulations);
+  if (!simulation.attempted) {
+    simulation.ok = false;
+  }
 
   const baseReport = {
     schemaVersion: 1,
@@ -599,10 +606,14 @@ async function commandPrepareSubmit(flags) {
     sourceBalanceOk,
     accountPreflight,
     transaction: {
-      signerCount: signers.length,
-      instructionCount: transaction.instructions.length,
+      transactionCount: prepareTransactions.length,
+      signerCount: prepareTransactions.reduce((sum, item) => sum + item.signers.length, 0),
+      instructionCount: prepareTransactions.reduce((sum, item) => sum + item.transaction.instructions.length, 0),
+      maxSerializedBytes: Math.max(...prepareTransactions.map((item) => item.serializedBytes)),
     },
+    transactions: prepareTransactions.map(reportPrepareTransaction),
     simulation,
+    simulations,
   };
 
   if (!sourceBalanceOk || accountIssues.length > 0 || !simulation.ok) {
@@ -610,6 +621,7 @@ async function commandPrepareSubmit(flags) {
       ...baseReport,
       status: "preflight_failed",
       signature: null,
+      signatures: [],
     });
     console.log(`Run: ${runId}`);
     console.log("Status: preflight_failed");
@@ -618,32 +630,39 @@ async function commandPrepareSubmit(flags) {
     return;
   }
 
-  let signature = null;
-  let confirmation = null;
-  let transactionInfo = null;
+  const sent = [];
   try {
-    signature = await connection.sendRawTransaction(transaction.serialize(), {
-      skipPreflight: false,
-      preflightCommitment: "confirmed",
-    });
-    confirmation = await connection.confirmTransaction({
-      signature,
-      ...latestBlockhash,
-    }, "confirmed");
-    transactionInfo = await connection.getTransaction(signature, {
-      commitment: "confirmed",
-      maxSupportedTransactionVersion: 0,
-    });
+    for (const item of prepareTransactions) {
+      const signature = await connection.sendRawTransaction(item.transaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      });
+      const confirmation = await connection.confirmTransaction({
+        signature,
+        ...latestBlockhash,
+      }, "confirmed");
+      const transactionInfo = await connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      });
+      sent.push({
+        chunk: item.chunk,
+        signature,
+        confirmation,
+        actualFeeLamports: String(transactionInfo?.meta?.fee ?? ""),
+      });
+    }
   } catch (error) {
     writeJson(reportPath, {
       ...baseReport,
       status: "send_failed",
-      signature,
+      signature: sent[0]?.signature ?? null,
+      signatures: sent,
       sendError: error.stack || error.message,
     });
     console.log(`Run: ${runId}`);
     console.log("Status: send_failed");
-    console.log(`Signature: ${signature ?? "not submitted"}`);
+    console.log(`Signature: ${sent.at(-1)?.signature ?? "not submitted"}`);
     console.log(`Report: ${relative(reportPath)}`);
     process.exitCode = 1;
     return;
@@ -658,15 +677,16 @@ async function commandPrepareSubmit(flags) {
     SystemProgram
   );
   const verificationOk = verification.every((check) => check.ok);
-  const confirmationOk = !confirmation.value.err;
+  const confirmationOk = sent.length === prepareTransactions.length
+    && sent.every((item) => !item.confirmation.value.err);
   const status = verifiedStatus("prepared", confirmationOk, verificationOk);
 
   writeJson(reportPath, {
     ...baseReport,
     status,
-    signature,
-    confirmation,
-    actualFeeLamports: String(transactionInfo?.meta?.fee ?? ""),
+    signature: sent[0]?.signature ?? null,
+    signatures: sent,
+    actualFeeLamports: sumLamportStrings(sent.map((item) => item.actualFeeLamports)).toString(),
     sourceBalanceAfterLamports: sourceBalanceAfterLamports.toString(),
     sourceBalanceAfterSol: formatLamports(sourceBalanceAfterLamports),
     verification,
@@ -674,7 +694,9 @@ async function commandPrepareSubmit(flags) {
 
   console.log(`Run: ${runId}`);
   console.log(`Status: ${status}`);
-  console.log(`Signature: ${signature}`);
+  for (const item of sent) {
+    console.log(`Signature ${item.chunk}: ${item.signature}`);
+  }
   console.log(`Report: ${relative(reportPath)}`);
 
   if (status !== "prepared") {
@@ -926,7 +948,7 @@ async function commandExecute(args) {
 
   const sent = [];
   for (const execution of executions) {
-    if (!execution.ok) {
+    if (!execution.ok || !execution.transaction) {
       continue;
     }
     const signature = await connection.sendRawTransaction(execution.transaction.serialize(), {
@@ -1415,6 +1437,190 @@ function keypairFromSeed(seedBase64, Keypair) {
   return Keypair.fromSeed(seed);
 }
 
+function buildPrepareTransactions({
+  plan,
+  programId,
+  source,
+  bundle,
+  recentBlockhash,
+  recentBlockhashesSysvar,
+  SYSVAR_RENT_PUBKEY,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction,
+}) {
+  const chunks = [];
+  let current = [];
+
+  for (const account of bundle) {
+    const candidate = [...current, account];
+    let candidateItem = null;
+    try {
+      candidateItem = buildPrepareTransactionItem({
+        plan,
+        programId,
+        source,
+        accounts: candidate,
+        chunk: chunks.length + 1,
+        recentBlockhash,
+        recentBlockhashesSysvar,
+        SYSVAR_RENT_PUBKEY,
+        SystemProgram,
+        Transaction,
+        TransactionInstruction,
+      });
+    } catch (error) {
+      if (current.length === 0) {
+        throw error;
+      }
+      chunks.push(buildPrepareTransactionItem({
+        plan,
+        programId,
+        source,
+        accounts: current,
+        chunk: chunks.length + 1,
+        recentBlockhash,
+        recentBlockhashesSysvar,
+        SYSVAR_RENT_PUBKEY,
+        SystemProgram,
+        Transaction,
+        TransactionInstruction,
+      }));
+      current = [account];
+      continue;
+    }
+
+    if (candidateItem.serializedBytes <= MAX_TRANSACTION_SIZE_BYTES) {
+      current = candidate;
+      continue;
+    }
+
+    if (current.length === 0) {
+      throw new Error(
+        `Prepare transaction for account ${account.index + 1} is too large: ${candidateItem.serializedBytes} bytes`
+      );
+    }
+
+    chunks.push(buildPrepareTransactionItem({
+      plan,
+      programId,
+      source,
+      accounts: current,
+      chunk: chunks.length + 1,
+      recentBlockhash,
+      recentBlockhashesSysvar,
+      SYSVAR_RENT_PUBKEY,
+      SystemProgram,
+      Transaction,
+      TransactionInstruction,
+    }));
+    current = [account];
+  }
+
+  if (current.length > 0) {
+    chunks.push(buildPrepareTransactionItem({
+      plan,
+      programId,
+      source,
+      accounts: current,
+      chunk: chunks.length + 1,
+      recentBlockhash,
+      recentBlockhashesSysvar,
+      SYSVAR_RENT_PUBKEY,
+      SystemProgram,
+      Transaction,
+      TransactionInstruction,
+    }));
+  }
+
+  return chunks;
+}
+
+function buildPrepareTransactionItem({
+  plan,
+  programId,
+  source,
+  accounts,
+  chunk,
+  recentBlockhash,
+  recentBlockhashesSysvar,
+  SYSVAR_RENT_PUBKEY,
+  SystemProgram,
+  Transaction,
+  TransactionInstruction,
+}) {
+  const transaction = buildFundBundleTransaction({
+    plan: {
+      ...plan,
+      recipients: accounts.map((account) => ({
+        amountLamports: account.amountLamports.toString(),
+      })),
+    },
+    programId,
+    source,
+    bundle: accounts,
+    recentBlockhash,
+    recentBlockhashesSysvar,
+    SYSVAR_RENT_PUBKEY,
+    SystemProgram,
+    Transaction,
+    TransactionInstruction,
+  });
+  const signers = [source, ...uniqueBundleSigners(accounts)];
+  transaction.sign(...signers);
+  return {
+    chunk,
+    accountIndexes: accounts.map((account) => account.index),
+    accountCount: accounts.length,
+    outputLamports: accounts.reduce((sum, account) => sum + account.amountLamports, 0n),
+    transaction,
+    signers,
+    serializedBytes: transaction.serialize().length,
+  };
+}
+
+function summarizeSimulations(simulations) {
+  if (simulations.length === 0) {
+    return {
+      attempted: false,
+      ok: false,
+      error: null,
+      logs: [],
+    };
+  }
+
+  const failed = simulations.find((item) => !item.ok);
+  return {
+    attempted: true,
+    ok: !failed,
+    error: failed?.error ?? null,
+    logs: simulations.flatMap((item) => item.logs),
+  };
+}
+
+function reportPrepareTransaction(item) {
+  return {
+    chunk: item.chunk,
+    accountIndexes: item.accountIndexes,
+    accountCount: item.accountCount,
+    outputLamports: item.outputLamports.toString(),
+    outputSol: formatLamports(item.outputLamports),
+    signerCount: item.signers.length,
+    instructionCount: item.transaction.instructions.length,
+    serializedBytes: item.serializedBytes,
+    maxTransactionSizeBytes: MAX_TRANSACTION_SIZE_BYTES,
+  };
+}
+
+function sumLamportStrings(values) {
+  return values.reduce((sum, value) => {
+    if (!value) {
+      return sum;
+    }
+    return sum + BigInt(value);
+  }, 0n);
+}
+
 function stripExecuteRuntimeFields(execution) {
   const { transaction, ...reportable } = execution;
   return reportable;
@@ -1498,3 +1704,8 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = 1;
   });
 }
+
+export {
+  MAX_TRANSACTION_SIZE_BYTES,
+  buildPrepareTransactions,
+};

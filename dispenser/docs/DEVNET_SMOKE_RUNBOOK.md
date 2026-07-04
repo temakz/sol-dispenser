@@ -69,6 +69,7 @@ npm run dispenser -- inspect --run $run
 Reports should show:
 
 - `prepare-report.json`: `status` is `prepared`
+- max-size runs may be split into multiple prepare transactions; check `transaction.transactionCount`
 - first `inspect-report.json`: `status` is `ok`, lifecycle is `prepared`
 - `execute-dry-run-report.json`: `status` is `ok`
 - `execute-report.json`: `status` is `executed`
