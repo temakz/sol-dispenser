@@ -135,6 +135,12 @@ test workspace at:
 ~/sol-dispenser-test
 ```
 
+Operator-only rule:
+
+- Codex must not run `wsl.exe` or execute WSL commands directly.
+- Codex may prepare and document the exact commands.
+- The operator runs WSL commands in `solana-ubuntu` and pastes output back when needed.
+
 Refresh and run from inside `solana-ubuntu`:
 
 ```bash
@@ -153,14 +159,10 @@ npm ci
 npm test
 npm run doctor
 npm run test:program
+npm run test:cli:e2e
 ```
 
-If Codex cannot see the distro and reports `WSL_E_DISTRO_NOT_FOUND`, ask the operator to run:
-
-```powershell
-wsl.exe -l -v
-wsl.exe -d solana-ubuntu
-```
+If WSL verification is needed, ask the operator to run the commands above and paste output.
 
 Do not spend time retrying Windows `solana-test-validator` for this project unless the user
 explicitly asks to fix the Windows-specific validator issue.

@@ -68,6 +68,12 @@ that distro and reports `WSL_E_DISTRO_NOT_FOUND`, ask the operator to run the WS
 manually from PowerShell. The operator-visible distro exists and was verified on
 2026-07-04.
 
+Session rule:
+
+- Codex must not invoke `wsl.exe` directly for this project.
+- The operator runs all WSL commands in `solana-ubuntu`.
+- Codex should provide exact WSL commands and wait for pasted output when WSL verification is required.
+
 Linux toolchain in WSL:
 
 - Node.js: `v22.23.1`
@@ -121,6 +127,7 @@ cd ~/sol-dispenser-test
 npm test
 npm run doctor
 npm run test:program
+npm run test:cli:e2e
 ```
 
 Latest WSL verification on 2026-07-04:

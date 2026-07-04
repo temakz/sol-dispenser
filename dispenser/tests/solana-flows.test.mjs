@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   Keypair,
+  NONCE_ACCOUNT_LENGTH,
   NonceAccount,
   PublicKey,
   SYSVAR_RENT_PUBKEY,
@@ -191,6 +192,48 @@ test("buildExecuteTransaction fails safely when nonce account is missing", async
   assert.equal(Object.hasOwn(execution, "transaction"), false);
 });
 
+test("buildExecuteTransaction fails safely when nonce authority is wrong", async () => {
+  const source = keypair(22);
+  const disposable = keypair(23);
+  const nonce = keypair(24);
+  const wrongAuthority = keypair(25);
+  const recipient = keypair(26).publicKey;
+  const connection = new FakeConnection({
+    balances: [
+      [disposable.publicKey, 100],
+      [recipient, 0],
+    ],
+    infos: [
+      [nonce.publicKey, {
+        owner: SystemProgram.programId,
+        lamports: 1_000_000,
+        data: nonceAccountData(wrongAuthority.publicKey),
+      }],
+    ],
+  });
+
+  const execution = await buildExecuteTransaction({
+    connection,
+    account: {
+      index: 0,
+      recipient: recipient.toBase58(),
+      amountLamports: 100n,
+      disposable,
+      nonce,
+    },
+    source,
+    NonceAccount,
+    PublicKey,
+    SystemProgram,
+    Transaction,
+  });
+
+  assert.equal(execution.ok, false);
+  assert.equal(execution.detail, "nonce authority does not match disposable wallet");
+  assert.equal(execution.observedAuthority, wrongAuthority.publicKey.toBase58());
+  assert.equal(Object.hasOwn(execution, "transaction"), false);
+});
+
 test("buildRecoverTransactions returns an empty successful plan when nothing is recoverable", async () => {
   const source = keypair(18);
   const disposable = keypair(19);
@@ -225,6 +268,45 @@ test("buildRecoverTransactions returns an empty successful plan when nothing is 
   assert.deepEqual(recovery.actions, []);
 });
 
+test("buildRecoverTransactions refuses to withdraw a nonce with the wrong authority", async () => {
+  const source = keypair(27);
+  const disposable = keypair(28);
+  const nonce = keypair(29);
+  const wrongAuthority = keypair(30);
+  const rescue = keypair(31).publicKey;
+  const connection = new FakeConnection({
+    balances: [
+      [disposable.publicKey, 0],
+    ],
+    infos: [
+      [nonce.publicKey, {
+        owner: SystemProgram.programId,
+        lamports: 1_000_000,
+        data: nonceAccountData(wrongAuthority.publicKey),
+      }],
+    ],
+  });
+
+  const recovery = await buildRecoverTransactions({
+    connection,
+    account: {
+      index: 0,
+      disposable,
+      nonce,
+    },
+    source,
+    rescue,
+    NonceAccount,
+    SystemProgram,
+    Transaction,
+  });
+
+  assert.equal(recovery.ok, false);
+  assert.match(recovery.detail, /nonce authority does not match disposable wallet/);
+  assert.equal(recovery.recoverableLamports, "1000000");
+  assert.deepEqual(recovery.actions, []);
+});
+
 function keypair(seedByte) {
   return Keypair.fromSeed(Buffer.alloc(32, seedByte));
 }
@@ -233,6 +315,16 @@ function assertKey(actual, pubkey, isSigner, isWritable) {
   assert.equal(actual.pubkey.toBase58(), pubkey.toBase58());
   assert.equal(actual.isSigner, isSigner);
   assert.equal(actual.isWritable, isWritable);
+}
+
+function nonceAccountData(authorizedPubkey, noncePubkey = keypair(32).publicKey) {
+  const buffer = Buffer.alloc(NONCE_ACCOUNT_LENGTH);
+  buffer.writeUInt32LE(0, 0);
+  buffer.writeUInt32LE(1, 4);
+  authorizedPubkey.toBuffer().copy(buffer, 8);
+  noncePubkey.toBuffer().copy(buffer, 40);
+  buffer.writeBigUInt64LE(5000n, 72);
+  return buffer;
 }
 
 class FakeConnection {

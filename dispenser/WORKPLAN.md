@@ -170,9 +170,9 @@ Tasks:
 - add unit tests: started with CLI helper regression tests,
 - add Anchor integration tests: done for `fund_bundle_accounts`; Windows runner still blocked, WSL path documented,
 - add CLI dry-run tests,
-- add local validator end-to-end test,
-- add devnet smoke runbook,
-- add failure-mode tests,
+- add local validator end-to-end test: added repeatable CLI prepare/execute/recover E2E script for WSL/local-validator,
+- add devnet smoke runbook: added `docs/DEVNET_SMOKE_RUNBOOK.md`,
+- add failure-mode tests: added Solana flow nonce authority failure coverage,
 - add CI workflow after GitHub repo exists.
 
 Deliverable:
