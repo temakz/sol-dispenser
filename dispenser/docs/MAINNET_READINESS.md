@@ -350,8 +350,21 @@ If `recover --confirm` fails or is interrupted:
 
 ## Current Readiness Status
 
-As of 2026-07-04, Phase 10 local guard and checklist work is nearly complete.
-The remaining non-mainnet gate is a fresh devnet smoke run on the intended
-mainnet-review commit. A mainnet deployment, mainnet RPC verification, mainnet
-dry-run, and every mainnet send action each require separate explicit operator
-approval.
+As of 2026-07-04, Phase 10 local guard and checklist work is complete pending
+explicit mainnet approval. The latest fresh devnet smoke run passed on runtime
+commit `24778aa` using run `20260704T132636Z`:
+
+- total output: `0.003 SOL`,
+- recipients: `2`,
+- `prepare-report.json`: `prepared`,
+- first `inspect-report.json`: `ok`,
+- `execute-dry-run-report.json`: `ok`,
+- `execute-report.json`: `executed`,
+- `recover-dry-run-report.json`: `ok`,
+- `recover-report.json`: `recovered`,
+- final `inspect-report.json`: `ok`,
+- final recoverable amount: `0 SOL`,
+- final source balance: `0.76145324 SOL`.
+
+A mainnet deployment, mainnet RPC verification, mainnet dry-run, and every
+mainnet send action each require separate explicit operator approval.

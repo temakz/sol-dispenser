@@ -181,13 +181,13 @@ Deliverable:
 
 ## Phase 10 - Mainnet Readiness
 
-Status: in progress
+Status: completed; pending explicit mainnet approval
 
 Tasks:
 
 - audit configs: done; added stricter local config validation and final config checklist,
 - verify program id consistency: repo-local test added,
-- run devnet smoke test,
+- run devnet smoke test: done on 2026-07-04 with run `20260704T132636Z`,
 - review secret handling: done; report secret-material guard added,
 - add mainnet typed confirmation: existing send gates covered by tests,
 - document emergency recovery: done; partial prepare/execute/recover procedures added,
