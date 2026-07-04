@@ -47,13 +47,26 @@ Program build:
 
 ## WSL Local Validator Environment
 
-Verified on 2026-07-03 using WSL distro:
+Verified again on 2026-07-04 using WSL distro:
 
 ```text
 solana-ubuntu
 Ubuntu 24.04.4 LTS
 WSL2
 ```
+
+Known WSL distros on the operator's Windows account:
+
+```text
+Ubuntu-24.04      Stopped         2
+docker-desktop    Stopped         2
+solana-ubuntu     Stopped         2
+```
+
+Use `solana-ubuntu` for Solana/Anchor local-validator tests. If a Codex shell cannot see
+that distro and reports `WSL_E_DISTRO_NOT_FOUND`, ask the operator to run the WSL commands
+manually from PowerShell. The operator-visible distro exists and was verified on
+2026-07-04.
 
 Linux toolchain in WSL:
 
@@ -65,6 +78,12 @@ Linux toolchain in WSL:
 - solana-test-validator: `3.1.10`
 - AVM: `1.1.2`
 - Anchor CLI: `1.1.2`
+
+Open the WSL test environment from PowerShell with:
+
+```powershell
+wsl.exe -d solana-ubuntu
+```
 
 WSL project test copy:
 
@@ -99,7 +118,29 @@ Run local-validator tests in WSL with:
 
 ```bash
 cd ~/sol-dispenser-test
+npm test
+npm run doctor
 npm run test:program
+```
+
+Latest WSL verification on 2026-07-04:
+
+- refreshed `~/sol-dispenser-test` from `/mnt/c/Code5/sol-contract/dispenser/`,
+- `npm ci`: passed,
+- `npm test`: passed, 20 tests,
+- `npm run doctor`: passed; `config` warning is expected because `dispenser.config.json` is excluded from the WSL test copy,
+- `npm run test:program`: passed, 4 Anchor/local-validator tests.
+
+Anchor/local-validator result:
+
+```text
+fund_bundle_accounts
+  funds disposable wallets and creates durable nonce accounts
+  rejects zero disposable amounts before moving funds
+  rejects remaining account count mismatches
+  rejects duplicate bundle accounts
+
+4 passing
 ```
 
 ## Package Manager

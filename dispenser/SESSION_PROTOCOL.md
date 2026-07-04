@@ -124,3 +124,43 @@ Use the smallest sufficient level:
 - on-chain behavior: Anchor tests
 - live behavior: devnet smoke test
 - mainnet: explicit user approval only
+
+## WSL Local Validator Rule
+
+Use WSL distro `solana-ubuntu` for Solana local-validator and Anchor integration tests.
+The Windows project root remains the source of truth, and the WSL copy is only a Linux-native
+test workspace at:
+
+```text
+~/sol-dispenser-test
+```
+
+Refresh and run from inside `solana-ubuntu`:
+
+```bash
+cd ~
+rm -rf sol-dispenser-test
+mkdir sol-dispenser-test
+rsync -a \
+  --exclude node_modules \
+  --exclude target \
+  --exclude runs \
+  --exclude dispenser.config.json \
+  /mnt/c/Code5/sol-contract/dispenser/ \
+  ~/sol-dispenser-test/
+cd ~/sol-dispenser-test
+npm ci
+npm test
+npm run doctor
+npm run test:program
+```
+
+If Codex cannot see the distro and reports `WSL_E_DISTRO_NOT_FOUND`, ask the operator to run:
+
+```powershell
+wsl.exe -l -v
+wsl.exe -d solana-ubuntu
+```
+
+Do not spend time retrying Windows `solana-test-validator` for this project unless the user
+explicitly asks to fix the Windows-specific validator issue.
