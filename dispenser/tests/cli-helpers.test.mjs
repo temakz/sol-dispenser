@@ -14,11 +14,14 @@ import {
 import {
   decryptJson,
   encryptJson,
+  encodeBase58,
   formatLamports,
+  parseDotEnv,
   parseExecuteFlags,
   parsePrepareFlags,
   parseRecipientFlag,
   parseSolToLamports,
+  parseSolanaPrivateKey,
   publicKeyFromSeed,
   validateConfig,
   validatePlan,
@@ -76,6 +79,33 @@ test("recipient flag requires ADDRESS:SOL", () => {
     amountSol: "0.1",
   });
   assert.throws(() => parseRecipientFlag(RECIPIENT), /ADDRESS:SOL/);
+});
+
+test("parseDotEnv reads operator settings without dotenv dependency", () => {
+  assert.deepEqual(parseDotEnv(`
+# comment
+MAINNET_SOURCE_WALLET=source-public-key
+LOCAL_SETTING="local value"
+EMPTY=
+invalid-key=ignored
+`), {
+    MAINNET_SOURCE_WALLET: "source-public-key",
+    LOCAL_SETTING: "local value",
+    EMPTY: "",
+  });
+});
+
+test("parseSolanaPrivateKey accepts common local private key encodings", () => {
+  const keypair = Keypair.fromSeed(Buffer.alloc(32, 11));
+  const secret = [...keypair.secretKey];
+  const seed = [...Buffer.alloc(32, 11)];
+
+  assert.deepEqual([...parseSolanaPrivateKey(JSON.stringify(secret)).bytes], secret);
+  assert.deepEqual([...parseSolanaPrivateKey(encodeBase58(keypair.secretKey)).bytes], secret);
+  assert.deepEqual([...parseSolanaPrivateKey(Buffer.from(secret).toString("base64")).bytes], secret);
+  assert.deepEqual([...parseSolanaPrivateKey(Buffer.from(seed).toString("hex")).bytes], seed);
+  assert.throws(() => parseSolanaPrivateKey("<paste-private-key-in-local-.env-only>"), /not set/);
+  assert.throws(() => parseSolanaPrivateKey("[1,2,3]"), /32 seed bytes or 64 secret-key bytes/);
 });
 
 test("validatePlan accepts a minimal valid plan", () => {

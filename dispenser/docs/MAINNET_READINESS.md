@@ -92,6 +92,18 @@ in `sourceWalletPath`. The CLI derives the public key from `sourceWalletPath`
 before prepare, inspect, execute, and recover. If it does not match
 `sourceWallet`, the command fails before building or sending transactions.
 
+If the operator has a wallet-export private key instead of a Solana keypair
+JSON file, keep it only in local `.env` as `MAINNET_SOURCE_PRIVATE_KEY` and run:
+
+```powershell
+npm run dispenser -- wallet-from-env
+```
+
+The command reads local `.env`, writes `MAINNET_SOURCE_WALLET_PATH` as a
+Solana keypair JSON file, and verifies the derived public key against
+`MAINNET_SOURCE_WALLET`. It never prints the private key. Do not commit `.env`
+or the generated wallet file.
+
 Before approval, record offline:
 
 - source wallet public key,
@@ -122,6 +134,8 @@ wallet and recipient details.
 - Public key recorded.
 - Wallet file path recorded.
 - Wallet file is outside git tracking.
+- If generated from `.env`, `wallet-from-env` completed and printed the expected
+  source public key.
 - Wallet is operator-controlled.
 - Wallet balance is enough for total output, nonce rent, estimated fees, and a
   margin chosen by the operator.

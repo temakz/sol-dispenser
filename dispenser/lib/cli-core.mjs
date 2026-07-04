@@ -26,6 +26,90 @@ export function parseRecipientFlag(value) {
   };
 }
 
+export function parseDotEnv(content) {
+  const env = {};
+  const lines = String(content).split(/\r?\n/);
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const separator = line.indexOf("=");
+    if (separator <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, separator).trim();
+    let value = line.slice(separator + 1).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      continue;
+    }
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    env[key] = value;
+  }
+
+  return env;
+}
+
+export function parseSolanaPrivateKey(value) {
+  const text = String(value ?? "").trim();
+  if (!text || text.startsWith("<")) {
+    throw new Error("MAINNET_SOURCE_PRIVATE_KEY is not set");
+  }
+
+  if (text.startsWith("[")) {
+    let parsed = null;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      throw new Error("MAINNET_SOURCE_PRIVATE_KEY JSON array is invalid");
+    }
+    return privateKeyBytes(parsed, "json-array");
+  }
+
+  if (/^[0-9a-f]+$/i.test(text) && [64, 128].includes(text.length)) {
+    return privateKeyBytes([...Buffer.from(text, "hex")], "hex");
+  }
+
+  try {
+    return privateKeyBytes(decodeBase58(text), "base58");
+  } catch {
+    // Try base64 below.
+  }
+
+  try {
+    const bytes = [...Buffer.from(text, "base64")];
+    return privateKeyBytes(bytes, "base64");
+  } catch {
+    throw new Error("MAINNET_SOURCE_PRIVATE_KEY must be JSON array, base58, base64, or hex");
+  }
+}
+
+function privateKeyBytes(bytes, encoding) {
+  if (!Array.isArray(bytes) || ![32, 64].includes(bytes.length)) {
+    throw new Error("MAINNET_SOURCE_PRIVATE_KEY must decode to 32 seed bytes or 64 secret-key bytes");
+  }
+
+  for (const byte of bytes) {
+    if (!Number.isInteger(byte) || byte < 0 || byte > 255) {
+      throw new Error("MAINNET_SOURCE_PRIVATE_KEY contains a non-byte value");
+    }
+  }
+
+  return {
+    encoding,
+    length: bytes.length,
+    bytes: Uint8Array.from(bytes),
+  };
+}
+
 export function parsePrepareFlags(args) {
   const flags = {
     run: "",

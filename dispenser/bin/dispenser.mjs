@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
@@ -13,10 +13,12 @@ import {
   decryptJson,
   encryptJson,
   formatLamports,
+  parseDotEnv,
   parseExecuteFlags,
   parsePrepareFlags,
   parseRecipientFlag,
   parseSolToLamports,
+  parseSolanaPrivateKey,
   publicKeyFromSeed,
   requireValue,
   validateConfig,
@@ -65,6 +67,7 @@ const commands = new Map([
   ["help", commandHelp],
   ["doctor", commandDoctor],
   ["init", commandInit],
+  ["wallet-from-env", commandWalletFromEnv],
   ["plan", commandPlan],
   ["prepare", commandPrepare],
   ["inspect", commandInspect],
@@ -93,6 +96,7 @@ function commandHelp() {
 Usage:
   dispenser doctor
   dispenser init [--force]
+  dispenser wallet-from-env [--env .env] [--out wallet-mainnet.json] [--force]
   dispenser plan [--total SOL] [--wallets N] [--recipient ADDRESS:SOL]
   dispenser prepare --run RUN_ID --secrets-only
   dispenser prepare --run RUN_ID --dry-run
@@ -108,6 +112,52 @@ Usage:
 Current phase:
   Phase 10 mainnet-readiness review. Mainnet remains gated by typed confirmation.
 `);
+}
+
+async function commandWalletFromEnv(args) {
+  const flags = parseWalletFromEnvFlags(args);
+  const envPath = resolve(repoRoot, flags.env);
+  if (!existsSync(envPath)) {
+    throw new Error(`Env file not found: ${relative(envPath)}`);
+  }
+
+  const env = {
+    ...process.env,
+    ...parseDotEnv(readFileSync(envPath, "utf8")),
+  };
+  const privateKey = env.MAINNET_SOURCE_PRIVATE_KEY;
+  const expectedSource = env.MAINNET_SOURCE_WALLET ?? "";
+  const outputPath = resolve(repoRoot, flags.out || env.MAINNET_SOURCE_WALLET_PATH || "./wallet-mainnet.json");
+
+  if (existsSync(outputPath) && !flags.force) {
+    throw new Error(`${relative(outputPath)} already exists. Use --force to overwrite.`);
+  }
+
+  const { Keypair } = await loadWeb3();
+  const parsed = parseSolanaPrivateKey(privateKey);
+  const source = parsed.length === 32
+    ? Keypair.fromSeed(parsed.bytes)
+    : Keypair.fromSecretKey(parsed.bytes);
+  const sourceWallet = source.publicKey.toBase58();
+
+  if (expectedSource && sourceWallet !== expectedSource) {
+    throw new Error(`Source wallet mismatch: private key is ${sourceWallet}, expected ${expectedSource}`);
+  }
+
+  mkdirSync(dirname(outputPath), { recursive: true });
+  writeFileSync(outputPath, `${JSON.stringify([...source.secretKey])}\n`, { mode: 0o600 });
+  try {
+    chmodSync(outputPath, 0o600);
+  } catch {
+    // Best-effort on Windows.
+  }
+
+  console.log(`Wallet: ${relative(outputPath)}`);
+  console.log(`Source: ${sourceWallet}`);
+  console.log(`Key format: ${parsed.encoding}, ${parsed.length} bytes`);
+  if (!expectedSource) {
+    log("warn", "MAINNET_SOURCE_WALLET is not set; add the printed Source public key before mainnet use.");
+  }
 }
 
 function commandDoctor() {
@@ -1466,6 +1516,31 @@ function parseFlags(args) {
       index += 1;
     } else {
       throw new Error(`Unknown plan flag: ${arg}`);
+    }
+  }
+
+  return flags;
+}
+
+function parseWalletFromEnvFlags(args) {
+  const flags = {
+    env: ".env",
+    out: "",
+    force: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--env") {
+      flags.env = requireValue(args, index);
+      index += 1;
+    } else if (arg === "--out") {
+      flags.out = requireValue(args, index);
+      index += 1;
+    } else if (arg === "--force") {
+      flags.force = true;
+    } else {
+      throw new Error(`Unknown wallet-from-env flag: ${arg}`);
     }
   }
 
