@@ -10,6 +10,7 @@ import { delimiter } from "node:path";
 import { randomBytes } from "node:crypto";
 import {
   createRunId,
+  configFromMainnetEnv,
   decryptJson,
   encryptJson,
   formatLamports,
@@ -67,6 +68,7 @@ const commands = new Map([
   ["help", commandHelp],
   ["doctor", commandDoctor],
   ["init", commandInit],
+  ["config-from-env", commandConfigFromEnv],
   ["wallet-from-env", commandWalletFromEnv],
   ["plan", commandPlan],
   ["prepare", commandPrepare],
@@ -96,6 +98,7 @@ function commandHelp() {
 Usage:
   dispenser doctor
   dispenser init [--force]
+  dispenser config-from-env [--env .env] [--force]
   dispenser wallet-from-env [--env .env] [--out wallet-mainnet.json] [--force]
   dispenser plan [--total SOL] [--wallets N] [--recipient ADDRESS:SOL]
   dispenser prepare --run RUN_ID --secrets-only
@@ -158,6 +161,32 @@ async function commandWalletFromEnv(args) {
   if (!expectedSource) {
     log("warn", "MAINNET_SOURCE_WALLET is not set; add the printed Source public key before mainnet use.");
   }
+}
+
+function commandConfigFromEnv(args) {
+  const flags = parseConfigFromEnvFlags(args);
+  const envPath = resolve(repoRoot, flags.env);
+  if (!existsSync(envPath)) {
+    throw new Error(`Env file not found: ${relative(envPath)}`);
+  }
+  if (existsSync(configPath) && !flags.force) {
+    throw new Error(`${relative(configPath)} already exists. Use --force to overwrite.`);
+  }
+
+  const env = {
+    ...process.env,
+    ...parseDotEnv(readFileSync(envPath, "utf8")),
+  };
+  const config = configFromMainnetEnv(env);
+  writeJson(configPath, config);
+
+  console.log(`Config: ${relative(configPath)}`);
+  console.log(`Cluster: ${config.cluster}`);
+  console.log(`RPC: ${config.rpcUrl}`);
+  console.log(`Source: ${config.sourceWallet}`);
+  console.log(`Source wallet path: ${config.sourceWalletPath}`);
+  console.log(`Rescue: ${config.rescueWallet}`);
+  console.log(`Max SOL per run: ${config.maxSolPerRun}`);
 }
 
 function commandDoctor() {
@@ -1541,6 +1570,27 @@ function parseWalletFromEnvFlags(args) {
       flags.force = true;
     } else {
       throw new Error(`Unknown wallet-from-env flag: ${arg}`);
+    }
+  }
+
+  return flags;
+}
+
+function parseConfigFromEnvFlags(args) {
+  const flags = {
+    env: ".env",
+    force: false,
+  };
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+    if (arg === "--env") {
+      flags.env = requireValue(args, index);
+      index += 1;
+    } else if (arg === "--force") {
+      flags.force = true;
+    } else {
+      throw new Error(`Unknown config-from-env flag: ${arg}`);
     }
   }
 

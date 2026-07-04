@@ -12,6 +12,7 @@ import {
   requireRecoverConfirmation,
 } from "../bin/dispenser.mjs";
 import {
+  configFromMainnetEnv,
   decryptJson,
   encryptJson,
   encodeBase58,
@@ -31,6 +32,9 @@ import {
 
 const PROGRAM_ID = "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6";
 const SOURCE = "6c1STbfjnRkEXa1AoBoWWsGDEDGyAH5kGQhavsoedbDg";
+const MAINNET_PROGRAM_ID = "6t1gxhFQqjRj3W6uTJM9xwzPbDv9QyWGNu2f9FEv6j5";
+const MAINNET_SOURCE = "4Z5eSsw3eTn95g3rxp3SSJerREbvAJAC5WDV5urhvHiS";
+const MAINNET_RESCUE = "HizKAdiBbivBDiv8hojaCcHzoZrVpj8S78M2x5XXQZwn";
 const RECIPIENT = "11111111111111111111111111111111";
 
 test("parseSolToLamports accepts precise SOL values", () => {
@@ -106,6 +110,38 @@ test("parseSolanaPrivateKey accepts common local private key encodings", () => {
   assert.deepEqual([...parseSolanaPrivateKey(Buffer.from(seed).toString("hex")).bytes], seed);
   assert.throws(() => parseSolanaPrivateKey("<paste-private-key-in-local-.env-only>"), /not set/);
   assert.throws(() => parseSolanaPrivateKey("[1,2,3]"), /32 seed bytes or 64 secret-key bytes/);
+});
+
+test("configFromMainnetEnv builds a validated mainnet config", () => {
+  assert.deepEqual(configFromMainnetEnv({
+    MAINNET_CLUSTER: "mainnet-beta",
+    MAINNET_RPC_URL: "https://api.mainnet-beta.solana.com",
+    MAINNET_SOURCE_WALLET: MAINNET_SOURCE,
+    MAINNET_SOURCE_WALLET_PATH: "./wallet-mainnet.json",
+    MAINNET_RESCUE_WALLET: MAINNET_RESCUE,
+    MAINNET_PROGRAM_ID,
+    MAINNET_MAX_SOL_PER_RUN: "20",
+    MAINNET_REQUIRE_TYPED_CONFIRMATION: "true",
+  }), {
+    cluster: "mainnet-beta",
+    rpcUrl: "https://api.mainnet-beta.solana.com",
+    sourceWallet: MAINNET_SOURCE,
+    sourceWalletPath: "./wallet-mainnet.json",
+    rescueWallet: MAINNET_RESCUE,
+    programId: MAINNET_PROGRAM_ID,
+    maxSolPerRun: "20",
+    requireMainnetTypedConfirmation: true,
+  });
+
+  assert.throws(() => configFromMainnetEnv({
+    MAINNET_CLUSTER: "mainnet-beta",
+    MAINNET_RPC_URL: "https://api.mainnet-beta.solana.com",
+    MAINNET_SOURCE_WALLET: MAINNET_SOURCE,
+    MAINNET_RESCUE_WALLET: MAINNET_RESCUE,
+    MAINNET_PROGRAM_ID,
+    MAINNET_MAX_SOL_PER_RUN: "20",
+    MAINNET_REQUIRE_TYPED_CONFIRMATION: "false",
+  }), /requireMainnetTypedConfirmation must be true/);
 });
 
 test("validatePlan accepts a minimal valid plan", () => {

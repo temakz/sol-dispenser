@@ -78,6 +78,16 @@ Rules enforced by local validation:
 - obvious RPC/cluster mismatches are rejected.
 - plans cannot exceed `maxSolPerRun`.
 
+If the operator uses local `.env` for public mainnet settings, materialize the
+reviewed config before planning:
+
+```powershell
+npm run dispenser -- config-from-env --force
+```
+
+The command writes `dispenser.config.json` from `MAINNET_*` values, validates it,
+and never includes `MAINNET_SOURCE_PRIVATE_KEY`.
+
 ## Source and Rescue Wallet Policy
 
 Use only operator-controlled wallets.

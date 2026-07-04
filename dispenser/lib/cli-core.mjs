@@ -110,6 +110,30 @@ function privateKeyBytes(bytes, encoding) {
   };
 }
 
+export function configFromMainnetEnv(env) {
+  const config = {
+    cluster: requiredEnv(env, "MAINNET_CLUSTER"),
+    rpcUrl: requiredEnv(env, "MAINNET_RPC_URL"),
+    sourceWallet: requiredEnv(env, "MAINNET_SOURCE_WALLET"),
+    sourceWalletPath: env.MAINNET_SOURCE_WALLET_PATH || "./wallet-mainnet.json",
+    rescueWallet: requiredEnv(env, "MAINNET_RESCUE_WALLET"),
+    programId: requiredEnv(env, "MAINNET_PROGRAM_ID"),
+    maxSolPerRun: requiredEnv(env, "MAINNET_MAX_SOL_PER_RUN"),
+    requireMainnetTypedConfirmation: env.MAINNET_REQUIRE_TYPED_CONFIRMATION === "true",
+  };
+
+  validateConfig(config);
+  return config;
+}
+
+function requiredEnv(env, key) {
+  const value = env[key];
+  if (!value || String(value).startsWith("<")) {
+    throw new Error(`${key} is not set`);
+  }
+  return String(value);
+}
+
 export function parsePrepareFlags(args) {
   const flags = {
     run: "",
