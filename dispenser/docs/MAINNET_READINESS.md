@@ -24,6 +24,11 @@ npm test
 npm run doctor
 ```
 
+Before any mainnet transaction approval is considered, run one fresh devnet
+smoke test on the exact commit intended for mainnet review. Record the run id,
+final recoverable amount, final source balance, and report statuses in the
+handoff note or operator log.
+
 If WSL/local-validator verification is required, Codex must not run `wsl.exe`.
 The operator runs the WSL commands documented in `SESSION_PROTOCOL.md`.
 
@@ -97,6 +102,170 @@ encrypted-secret payload fields. This does not make reports public-safe; treat
 wallet addresses, balances, recipients, RPC URLs, signatures, and timing as
 operationally sensitive unless the operator explicitly approves sharing a
 redacted report.
+
+## Final Operator Checklist
+
+Complete this section offline before creating any mainnet plan. The operator
+should keep the completed checklist out of git because it contains operational
+wallet and recipient details.
+
+### Source Wallet
+
+- Public key recorded.
+- Wallet file path recorded.
+- Wallet file is outside git tracking.
+- Wallet is operator-controlled.
+- Wallet balance is enough for total output, nonce rent, estimated fees, and a
+  margin chosen by the operator.
+- Wallet is not a cold-storage key unless the operator explicitly accepts using
+  it as an online signer.
+- Wallet public key matches the source shown by `prepare --dry-run`.
+
+### Rescue Wallet
+
+- Public key recorded.
+- Wallet is operator-controlled.
+- Wallet is not one of the disposable wallets.
+- Wallet is not one of the final recipient wallets unless intentionally chosen
+  and recorded.
+- Wallet is valid on the target cluster.
+- Wallet public key matches the rescue wallet shown by `recover --dry-run`.
+- Mainnet config does not rely on source-wallet fallback.
+
+### Recipients
+
+- Every recipient is operator-approved.
+- Every recipient address is copied from a trusted source.
+- Per-recipient lamports and SOL amounts are recorded.
+- Sum of recipient lamports equals plan total lamports.
+- Duplicate recipients are intentional and recorded.
+- The exact plan total is available for `--confirm-total`.
+
+### Limits and Fees
+
+- `maxSolPerRun` is operator-approved.
+- Plan total is less than or equal to `maxSolPerRun`.
+- Nonce rent estimate is reviewed.
+- Fee estimate is reviewed.
+- Operator accepts that final live fees can vary from estimates.
+- Operator accepts that Solana transactions and balances are public.
+
+### Files and Secrets
+
+- `DISPENSER_PASSPHRASE` is available to the operator.
+- Passphrase is not written to disk, chat, shell history, docs, or reports.
+- `wallet.json`, `.env`, `runs/`, and `*.enc.json` are ignored by git.
+- `secrets.enc.json` exists before funding.
+- `secrets-report.json` contains public keys only, not generated seeds.
+- Reports are treated as operationally sensitive even after the secret scan.
+
+### Config Checklist
+
+Review `dispenser.config.json` before planning:
+
+- `cluster` is exactly `mainnet-beta`.
+- `rpcUrl` is the operator-approved mainnet RPC endpoint.
+- `rpcUrl` does not point at devnet, testnet, localhost, or 127.0.0.1.
+- `sourceWalletPath` points at the intended operator-controlled keypair file.
+- `rescueWallet` is non-empty and matches the recorded rescue wallet.
+- `programId` matches the operator-approved deployed mainnet program id.
+- `maxSolPerRun` matches the approved cap.
+- `requireMainnetTypedConfirmation` is `true`.
+
+Then run local checks only:
+
+```powershell
+npm test
+npm run doctor
+```
+
+`doctor` reads local config and toolchain state. Treat any configured
+`mainnet-beta` RPC connectivity check as a separate approval item if such a
+check is added later.
+
+## Approval Stages
+
+Mainnet approval is split into separate gates. Approval for one gate does not
+approve later gates.
+
+### Gate 0 - Local Readiness
+
+Allowed actions:
+
+- local tests,
+- local docs review,
+- local config file review,
+- devnet smoke test.
+
+Required before passing Gate 0:
+
+- tests pass,
+- latest devnet smoke passes,
+- final recoverable amount is zero after devnet recover,
+- current commit hash is recorded,
+- operator has reviewed this checklist.
+
+### Gate 1 - Mainnet RPC Verification
+
+Requires explicit operator approval naming:
+
+- target commit,
+- `mainnet-beta`,
+- RPC endpoint,
+- source wallet public key,
+- rescue wallet public key,
+- maximum total SOL.
+
+Allowed actions after Gate 1 approval:
+
+- run local commands that contact the approved mainnet RPC without sending
+  transactions,
+- create or inspect a mainnet plan,
+- run dry-runs only if the operator explicitly includes dry-runs in the approval.
+
+Not allowed:
+
+- `prepare --confirm`,
+- `execute --confirm`,
+- `recover --confirm`.
+
+### Gate 2 - Prepare Send
+
+Requires a separate explicit approval after reviewing `prepare --dry-run`.
+
+Approval must include:
+
+- run id,
+- exact total SOL,
+- exact total lamports,
+- source wallet,
+- rescue wallet,
+- program id,
+- `--confirm-mainnet MAINNET`,
+- `--confirm-total <exact plan total SOL>`.
+
+Allowed action:
+
+- `prepare --confirm` for that run id only.
+
+### Gate 3 - Execute Send
+
+Requires a separate explicit approval after `inspect` and `execute --dry-run`.
+
+Allowed action:
+
+- `execute --confirm` for that run id only.
+
+### Gate 4 - Recover Send
+
+Requires a separate explicit approval after `inspect` and `recover --dry-run`.
+
+Allowed action:
+
+- `recover --confirm` for that run id only.
+
+After Gate 4, run `inspect` and record final recoverable amount. A healthy
+completed run has final recoverable amount `0`.
 
 ## Typed Confirmation Guards
 
@@ -181,6 +350,8 @@ If `recover --confirm` fails or is interrupted:
 
 ## Current Readiness Status
 
-As of 2026-07-04, Phase 10 has started but is not complete. Local guards and
-documentation can be reviewed without touching mainnet. A mainnet deployment and
-any mainnet RPC action remain pending separate explicit operator approval.
+As of 2026-07-04, Phase 10 local guard and checklist work is nearly complete.
+The remaining non-mainnet gate is a fresh devnet smoke run on the intended
+mainnet-review commit. A mainnet deployment, mainnet RPC verification, mainnet
+dry-run, and every mainnet send action each require separate explicit operator
+approval.
