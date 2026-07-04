@@ -34,6 +34,12 @@ import {
   uniqueBundleSigners,
   verifyPreparedAccounts,
 } from "../lib/solana-flows.mjs";
+import {
+  inspectLifecycle,
+  preflightStatus,
+  reportFileName,
+  verifiedStatus,
+} from "../lib/report-lifecycle.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(__dirname, "..");
@@ -260,7 +266,7 @@ async function commandPrepare(args) {
   const runDir = join(runsDir, runId);
   const planPath = join(runDir, "bundle-plan.json");
   const secretsPath = join(runDir, "secrets.enc.json");
-  const reportPath = join(runDir, "secrets-report.json");
+  const reportPath = join(runDir, reportFileName("prepare", "secrets"));
 
   if (!existsSync(planPath)) {
     throw new Error(`Plan not found: ${relative(planPath)}`);
@@ -330,7 +336,7 @@ async function commandPrepareDryRun(flags) {
   const runDir = join(runsDir, runId);
   const planPath = join(runDir, "bundle-plan.json");
   const secretsPath = join(runDir, "secrets.enc.json");
-  const reportPath = join(runDir, "prepare-dry-run-report.json");
+  const reportPath = join(runDir, reportFileName("prepare", "dryRun"));
 
   if (!existsSync(planPath)) {
     throw new Error(`Plan not found: ${relative(planPath)}`);
@@ -482,7 +488,7 @@ async function commandPrepareSubmit(flags) {
   const runDir = join(runsDir, runId);
   const planPath = join(runDir, "bundle-plan.json");
   const secretsPath = join(runDir, "secrets.enc.json");
-  const reportPath = join(runDir, "prepare-report.json");
+  const reportPath = join(runDir, reportFileName("prepare", "confirm"));
 
   if (!existsSync(planPath)) {
     throw new Error(`Plan not found: ${relative(planPath)}`);
@@ -653,7 +659,7 @@ async function commandPrepareSubmit(flags) {
   );
   const verificationOk = verification.every((check) => check.ok);
   const confirmationOk = !confirmation.value.err;
-  const status = confirmationOk && verificationOk ? "prepared" : "verification_failed";
+  const status = verifiedStatus("prepared", confirmationOk, verificationOk);
 
   writeJson(reportPath, {
     ...baseReport,
@@ -687,9 +693,9 @@ async function commandInspect(args) {
   const runDir = join(runsDir, runId);
   const planPath = join(runDir, "bundle-plan.json");
   const secretsPath = join(runDir, "secrets.enc.json");
-  const reportPath = join(runDir, "inspect-report.json");
-  const executeReportPath = join(runDir, "execute-report.json");
-  const recoverReportPath = join(runDir, "recover-report.json");
+  const reportPath = join(runDir, reportFileName("inspect"));
+  const executeReportPath = join(runDir, reportFileName("execute", "confirm"));
+  const recoverReportPath = join(runDir, reportFileName("recover", "confirm"));
 
   if (!existsSync(planPath)) {
     throw new Error(`Plan not found: ${relative(planPath)}`);
@@ -709,8 +715,9 @@ async function commandInspect(args) {
   const recoverReport = existsSync(recoverReportPath)
     ? JSON.parse(readFileSync(recoverReportPath, "utf8"))
     : null;
-  const executionComplete = executeReport?.status === "executed";
-  const recoveryComplete = recoverReport?.status === "recovered";
+  const lifecycle = inspectLifecycle({ executeReport, recoverReport });
+  const executionComplete = lifecycle === "executed" || lifecycle === "recovered";
+  const recoveryComplete = lifecycle === "recovered";
 
   const {
     Connection,
@@ -758,7 +765,7 @@ async function commandInspect(args) {
     runId,
     createdAt: new Date().toISOString(),
     status,
-    lifecycle: recoveryComplete ? "recovered" : executionComplete ? "executed" : "prepared",
+    lifecycle,
     cluster: plan.cluster,
     rpcUrl: plan.rpcUrl,
     sourceWallet: source.publicKey.toBase58(),
@@ -814,7 +821,7 @@ async function commandExecute(args) {
   const runDir = join(runsDir, runId);
   const planPath = join(runDir, "bundle-plan.json");
   const secretsPath = join(runDir, "secrets.enc.json");
-  const reportPath = join(runDir, flags.dryRun ? "execute-dry-run-report.json" : "execute-report.json");
+  const reportPath = join(runDir, reportFileName("execute", flags.dryRun ? "dryRun" : "confirm"));
 
   if (!existsSync(planPath)) {
     throw new Error(`Plan not found: ${relative(planPath)}`);
@@ -904,7 +911,7 @@ async function commandExecute(args) {
   };
 
   if (flags.dryRun || !preflightOk) {
-    const status = preflightOk ? "ok" : "preflight_failed";
+    const status = preflightStatus(preflightOk);
     writeJson(reportPath, {
       ...baseReport,
       status,
@@ -954,10 +961,11 @@ async function commandExecute(args) {
     });
   }
 
-  const status = sent.every((item) => item.confirmation.value.err === null)
-    && verification.every((item) => item.ok)
-    ? "executed"
-    : "verification_failed";
+  const status = verifiedStatus(
+    "executed",
+    sent.every((item) => item.confirmation.value.err === null),
+    verification.every((item) => item.ok)
+  );
   writeJson(reportPath, {
     ...baseReport,
     status,
@@ -986,7 +994,7 @@ async function commandRecover(args) {
   const runDir = join(runsDir, runId);
   const planPath = join(runDir, "bundle-plan.json");
   const secretsPath = join(runDir, "secrets.enc.json");
-  const reportPath = join(runDir, flags.dryRun ? "recover-dry-run-report.json" : "recover-report.json");
+  const reportPath = join(runDir, reportFileName("recover", flags.dryRun ? "dryRun" : "confirm"));
 
   if (!existsSync(planPath)) {
     throw new Error(`Plan not found: ${relative(planPath)}`);
@@ -1087,7 +1095,7 @@ async function commandRecover(args) {
   };
 
   if (flags.dryRun || !preflightOk) {
-    const status = preflightOk ? "ok" : "preflight_failed";
+    const status = preflightStatus(preflightOk);
     writeJson(reportPath, {
       ...baseReport,
       status,
@@ -1138,10 +1146,11 @@ async function commandRecover(args) {
     });
   }
   const rescueBalanceAfterLamports = BigInt(await connection.getBalance(rescue, "confirmed"));
-  const status = sent.every((item) => item.confirmation.value.err === null)
-    && verification.every((item) => item.ok)
-    ? "recovered"
-    : "verification_failed";
+  const status = verifiedStatus(
+    "recovered",
+    sent.every((item) => item.confirmation.value.err === null),
+    verification.every((item) => item.ok)
+  );
 
   writeJson(reportPath, {
     ...baseReport,
