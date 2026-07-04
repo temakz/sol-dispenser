@@ -49,6 +49,15 @@ Before mainnet approval, verify it matches:
 
 The automated unit test `program id stays consistent across CLI, Anchor, Rust,
 and docs` covers the repo-local files. It does not prove a mainnet deployment.
+Gate 1 must also verify that `getAccountInfo(programId)` on the approved
+mainnet RPC returns an existing executable account. If the account is missing or
+not executable, stop before planning, dry-runs, or sends.
+
+As of the 2026-07-04 Gate 1 check, the devnet/local program had not been
+deployed to mainnet. The configured mainnet program id
+`6t1gxhFQqjRj3W6uTJM9xwzPbDv9QyWGNu2f9FEv6j5` returned no account on
+mainnet-beta. Mainnet deployment or an operator-approved existing executable
+mainnet program id is required before the next gate.
 
 ## Config Policy
 
@@ -177,6 +186,10 @@ wallet and recipient details.
 
 - `maxSolPerRun` is operator-approved.
 - Plan total is less than or equal to `maxSolPerRun`.
+- `maxSolPerRun` is a policy ceiling, not a required wallet balance for every
+  test run.
+- Source balance is enough for the specific planned total, nonce rent, estimated
+  fees, and a margin chosen by the operator.
 - Nonce rent estimate is reviewed.
 - Fee estimate is reviewed.
 - Operator accepts that final live fees can vary from estimates.
@@ -239,6 +252,19 @@ Required before passing Gate 0:
 - current commit hash is recorded,
 - operator has reviewed this checklist.
 
+### Gate 0.5 - Mainnet Program Deployment
+
+Required before any mainnet plan, dry-run, or send:
+
+- mainnet program deployment is completed under a separate explicit approval, or
+  the operator supplies an already deployed mainnet program id,
+- the approved mainnet RPC returns an existing executable account for
+  `programId`,
+- the deployed program id is recorded in `dispenser.config.json` and in the
+  operator log,
+- repo-local program id consistency is reviewed again if the deployed id differs
+  from devnet/local ids.
+
 ### Gate 1 - Mainnet RPC Verification
 
 Requires explicit operator approval naming:
@@ -254,11 +280,13 @@ Allowed actions after Gate 1 approval:
 
 - run local commands that contact the approved mainnet RPC without sending
   transactions,
-- create or inspect a mainnet plan,
+- verify that the configured program id exists and is executable,
+- check source/rescue balances and readonly account state,
 - run dry-runs only if the operator explicitly includes dry-runs in the approval.
 
 Not allowed:
 
+- creating a mainnet plan unless Gate 0.5 has passed,
 - `prepare --confirm`,
 - `execute --confirm`,
 - `recover --confirm`.
@@ -400,5 +428,10 @@ commit `5f09acd` using run `20260704T171606Z`:
 - final recoverable amount: `0 SOL`,
 - final source balance: `0.76138824 SOL`.
 
-A mainnet deployment, mainnet RPC verification, mainnet dry-run, and every
-mainnet send action each require separate explicit operator approval.
+Gate 1 mainnet RPC verification later passed for the approved RPC endpoint, but
+found that the configured mainnet program id did not exist on mainnet-beta.
+Mainnet deployment or an operator-approved executable mainnet program id remains
+pending.
+
+Mainnet deployment, mainnet RPC verification, mainnet dry-run, and every mainnet
+send action each require separate explicit operator approval.

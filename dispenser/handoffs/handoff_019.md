@@ -55,9 +55,12 @@ Gate 1 confirms the configured RPC endpoint is mainnet-beta.
 
 Do not advance to mainnet planning or any mainnet dry-run/send step yet:
 
-- the configured program id does not exist on mainnet,
-- the source wallet has `0.100001 SOL`, which is below the configured
-  `20 SOL` max-capacity value and may be below any intended funded run.
+- the configured program id does not exist on mainnet.
+
+The source wallet has `0.100001 SOL`. The configured `20 SOL` value is a policy
+ceiling for future runs, not a required balance for a small test. For any later
+mainnet test, only the specific planned total plus nonce rent, estimated fees,
+and operator margin must be covered.
 
 ## Commands Run
 
@@ -79,6 +82,8 @@ node --input-type=module <read-only mainnet RPC verification script>
 
 ## Next Step
 
-Before Gate 2, resolve the mainnet program id/deployment decision and the source
-wallet funding/cap decision. Any next mainnet action still requires a separate
+Before any mainnet plan, dry-run, or send, deploy the program to mainnet or
+replace `programId` with an operator-approved existing executable mainnet
+program id, then rerun readonly verification that `getAccountInfo(programId)`
+exists and is executable. Any next mainnet action still requires a separate
 explicit operator approval.

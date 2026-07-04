@@ -181,12 +181,16 @@ Deliverable:
 
 ## Phase 10 - Mainnet Readiness
 
-Status: completed; pending explicit mainnet approval
+Status: in progress; Gate 1 RPC verification completed; mainnet program deployment pending
 
 Tasks:
 
 - audit configs: done; added stricter local config validation and final config checklist,
 - verify program id consistency: repo-local test added,
+- verify mainnet program account exists and is executable: blocked; Gate 1 found no
+  account at the configured mainnet program id,
+- deploy or approve the executable mainnet program id: pending separate explicit
+  operator approval,
 - run devnet smoke test: done on 2026-07-04 with run `20260704T171606Z` after source-wallet guard,
 - review secret handling: done; report secret-material guard added,
 - add mainnet typed confirmation: existing send gates covered by tests,
@@ -195,4 +199,5 @@ Tasks:
 
 Deliverable:
 
-- mainnet checklist complete, pending explicit user approval.
+- mainnet checklist and Gate 1 RPC verification complete, pending executable
+  mainnet program deployment/verification before any mainnet plan or dry-run.
