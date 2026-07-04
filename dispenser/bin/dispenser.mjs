@@ -46,6 +46,8 @@ const repoRoot = resolve(__dirname, "..");
 const configPath = join(repoRoot, "dispenser.config.json");
 const runsDir = join(repoRoot, "runs");
 const MAX_TRANSACTION_SIZE_BYTES = 1232;
+const RPC_RETRY_ATTEMPTS = 5;
+const RPC_RETRY_BASE_DELAY_MS = 500;
 
 const defaultConfig = {
   cluster: "devnet",
@@ -633,23 +635,38 @@ async function commandPrepareSubmit(flags) {
   const sent = [];
   try {
     for (const item of prepareTransactions) {
-      const signature = await connection.sendRawTransaction(item.transaction.serialize(), {
+      const signature = await rpcCallWithRetry("prepare sendRawTransaction", () => connection.sendRawTransaction(item.transaction.serialize(), {
         skipPreflight: false,
         preflightCommitment: "confirmed",
-      });
-      const confirmation = await connection.confirmTransaction({
-        signature,
-        ...latestBlockhash,
-      }, "confirmed");
-      const transactionInfo = await connection.getTransaction(signature, {
-        commitment: "confirmed",
-        maxSupportedTransactionVersion: 0,
-      });
-      sent.push({
+      }));
+      const sentItem = {
         chunk: item.chunk,
         signature,
-        confirmation,
-        actualFeeLamports: String(transactionInfo?.meta?.fee ?? ""),
+        confirmation: null,
+        actualFeeLamports: "",
+      };
+      sent.push(sentItem);
+      writeJson(reportPath, {
+        ...baseReport,
+        status: "send_in_progress",
+        signature: sent[0]?.signature ?? null,
+        signatures: sent,
+      });
+      const confirmation = await rpcCallWithRetry("prepare confirmTransaction", () => connection.confirmTransaction({
+        signature,
+        ...latestBlockhash,
+      }, "confirmed"));
+      const transactionInfo = await rpcCallWithRetry("prepare getTransaction", () => connection.getTransaction(signature, {
+        commitment: "confirmed",
+        maxSupportedTransactionVersion: 0,
+      }));
+      sentItem.confirmation = confirmation;
+      sentItem.actualFeeLamports = String(transactionInfo?.meta?.fee ?? "");
+      writeJson(reportPath, {
+        ...baseReport,
+        status: "send_in_progress",
+        signature: sent[0]?.signature ?? null,
+        signatures: sent,
       });
     }
   } catch (error) {
@@ -668,17 +685,37 @@ async function commandPrepareSubmit(flags) {
     return;
   }
 
-  const sourceBalanceAfterLamports = BigInt(await connection.getBalance(source.publicKey, "confirmed"));
-  const verification = await verifyPreparedAccounts(
-    connection,
-    bundle,
-    nonceRentLamports,
-    NonceAccount,
-    SystemProgram
-  );
+  let sourceBalanceAfterLamports = 0n;
+  let verification = [];
+  try {
+    sourceBalanceAfterLamports = BigInt(
+      await rpcCallWithRetry("prepare verify source balance", () => connection.getBalance(source.publicKey, "confirmed"))
+    );
+    verification = await rpcCallWithRetry("prepare verify prepared accounts", () => verifyPreparedAccounts(
+      connection,
+      bundle,
+      nonceRentLamports,
+      NonceAccount,
+      SystemProgram
+    ));
+  } catch (error) {
+    writeJson(reportPath, {
+      ...baseReport,
+      status: "verification_failed",
+      signature: sent[0]?.signature ?? null,
+      signatures: sent,
+      verification,
+      verifyError: error.stack || error.message,
+    });
+    console.log(`Run: ${runId}`);
+    console.log("Status: verification_failed");
+    console.log(`Report: ${relative(reportPath)}`);
+    process.exitCode = 1;
+    return;
+  }
   const verificationOk = verification.every((check) => check.ok);
   const confirmationOk = sent.length === prepareTransactions.length
-    && sent.every((item) => !item.confirmation.value.err);
+    && sent.every((item) => item.confirmation?.value?.err === null);
   const status = verifiedStatus("prepared", confirmationOk, verificationOk);
 
   writeJson(reportPath, {
@@ -947,45 +984,84 @@ async function commandExecute(args) {
   }
 
   const sent = [];
-  for (const execution of executions) {
-    if (!execution.ok || !execution.transaction) {
-      continue;
+  try {
+    for (const execution of executions) {
+      if (!execution.ok || !execution.transaction) {
+        continue;
+      }
+      const signature = await rpcCallWithRetry("execute sendRawTransaction", () => connection.sendRawTransaction(execution.transaction.serialize(), {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+      }));
+      const sentItem = {
+        index: execution.index,
+        signature,
+        confirmation: null,
+      };
+      sent.push(sentItem);
+      writeJson(reportPath, {
+        ...baseReport,
+        status: "send_in_progress",
+        signatures: sent,
+      });
+      sentItem.confirmation = await rpcCallWithRetry("execute confirmTransaction", () => connection.confirmTransaction(signature, "confirmed"));
+      writeJson(reportPath, {
+        ...baseReport,
+        status: "send_in_progress",
+        signatures: sent,
+      });
     }
-    const signature = await connection.sendRawTransaction(execution.transaction.serialize(), {
-      skipPreflight: false,
-      preflightCommitment: "confirmed",
+  } catch (error) {
+    writeJson(reportPath, {
+      ...baseReport,
+      status: "send_failed",
+      signatures: sent,
+      sendError: error.stack || error.message,
     });
-    const confirmation = await connection.confirmTransaction(signature, "confirmed");
-    sent.push({
-      index: execution.index,
-      signature,
-      confirmation,
-    });
+    console.log(`Run: ${runId}`);
+    console.log("Status: send_failed");
+    console.log(`Signature: ${sent.at(-1)?.signature ?? "not submitted"}`);
+    console.log(`Report: ${relative(reportPath)}`);
+    process.exitCode = 1;
+    return;
   }
 
   const verification = [];
-  for (const account of bundle) {
-    const recipientBalanceAfterLamports = BigInt(
-      await connection.getBalance(new PublicKey(account.recipient), "confirmed")
-    );
-    const disposableBalanceAfterLamports = BigInt(
-      await connection.getBalance(account.disposable.publicKey, "confirmed")
-    );
-    verification.push({
-      index: account.index,
-      recipient: account.recipient,
-      recipientBalanceAfterLamports: recipientBalanceAfterLamports.toString(),
-      recipientBalanceAfterSol: formatLamports(recipientBalanceAfterLamports),
-      disposablePublicKey: account.disposable.publicKey.toBase58(),
-      disposableBalanceAfterLamports: disposableBalanceAfterLamports.toString(),
-      disposableBalanceAfterSol: formatLamports(disposableBalanceAfterLamports),
-      ok: disposableBalanceAfterLamports === 0n,
+  try {
+    for (const account of bundle) {
+      const recipientBalanceAfterLamports = BigInt(
+        await rpcCallWithRetry("execute verify recipient balance", () => connection.getBalance(new PublicKey(account.recipient), "confirmed"))
+      );
+      const disposableBalanceAfterLamports = BigInt(
+        await rpcCallWithRetry("execute verify disposable balance", () => connection.getBalance(account.disposable.publicKey, "confirmed"))
+      );
+      verification.push({
+        index: account.index,
+        recipient: account.recipient,
+        recipientBalanceAfterLamports: recipientBalanceAfterLamports.toString(),
+        recipientBalanceAfterSol: formatLamports(recipientBalanceAfterLamports),
+        disposablePublicKey: account.disposable.publicKey.toBase58(),
+        disposableBalanceAfterLamports: disposableBalanceAfterLamports.toString(),
+        disposableBalanceAfterSol: formatLamports(disposableBalanceAfterLamports),
+        ok: disposableBalanceAfterLamports === 0n,
+      });
+    }
+  } catch (error) {
+    writeJson(reportPath, {
+      ...baseReport,
+      status: "verification_failed",
+      signatures: sent,
+      verification,
+      verifyError: error.stack || error.message,
     });
+    printExecuteSummary(runId, "verification_failed", baseReport, reportPath);
+    process.exitCode = 1;
+    return;
   }
 
   const status = verifiedStatus(
     "executed",
-    sent.every((item) => item.confirmation.value.err === null),
+    sent.every((item) => item.confirmation?.value?.err === null),
     verification.every((item) => item.ok)
   );
   writeJson(reportPath, {
@@ -1131,46 +1207,86 @@ async function commandRecover(args) {
   }
 
   const sent = [];
-  for (const recovery of recoveries) {
-    if (!recovery.ok) {
-      continue;
+  try {
+    for (const recovery of recoveries) {
+      if (!recovery.ok) {
+        continue;
+      }
+      for (const action of recovery.actions) {
+        const signature = await rpcCallWithRetry("recover sendRawTransaction", () => connection.sendRawTransaction(action.transaction.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        }));
+        const sentItem = {
+          index: recovery.index,
+          action: action.kind,
+          signature,
+          confirmation: null,
+        };
+        sent.push(sentItem);
+        writeJson(reportPath, {
+          ...baseReport,
+          status: "send_in_progress",
+          signatures: sent,
+        });
+        sentItem.confirmation = await rpcCallWithRetry("recover confirmTransaction", () => connection.confirmTransaction(signature, "confirmed"));
+        writeJson(reportPath, {
+          ...baseReport,
+          status: "send_in_progress",
+          signatures: sent,
+        });
+      }
     }
-    for (const action of recovery.actions) {
-      const signature = await connection.sendRawTransaction(action.transaction.serialize(), {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-      });
-      const confirmation = await connection.confirmTransaction(signature, "confirmed");
-      sent.push({
-        index: recovery.index,
-        action: action.kind,
-        signature,
-        confirmation,
-      });
-    }
+  } catch (error) {
+    writeJson(reportPath, {
+      ...baseReport,
+      status: "send_failed",
+      signatures: sent,
+      sendError: error.stack || error.message,
+    });
+    console.log(`Run: ${runId}`);
+    console.log("Status: send_failed");
+    console.log(`Signature: ${sent.at(-1)?.signature ?? "not submitted"}`);
+    console.log(`Report: ${relative(reportPath)}`);
+    process.exitCode = 1;
+    return;
   }
 
   const verification = [];
-  for (const account of bundle) {
-    const disposableBalanceAfterLamports = BigInt(
-      await connection.getBalance(account.disposable.publicKey, "confirmed")
-    );
-    const nonceInfoAfter = await connection.getAccountInfo(account.nonce.publicKey, "confirmed");
-    verification.push({
-      index: account.index,
-      disposablePublicKey: account.disposable.publicKey.toBase58(),
-      disposableBalanceAfterLamports: disposableBalanceAfterLamports.toString(),
-      disposableBalanceAfterSol: formatLamports(disposableBalanceAfterLamports),
-      noncePublicKey: account.nonce.publicKey.toBase58(),
-      nonceExistsAfter: Boolean(nonceInfoAfter),
-      nonceBalanceAfterLamports: String(nonceInfoAfter?.lamports ?? 0),
-      ok: disposableBalanceAfterLamports === 0n && !nonceInfoAfter,
+  let rescueBalanceAfterLamports = 0n;
+  try {
+    for (const account of bundle) {
+      const disposableBalanceAfterLamports = BigInt(
+        await rpcCallWithRetry("recover verify disposable balance", () => connection.getBalance(account.disposable.publicKey, "confirmed"))
+      );
+      const nonceInfoAfter = await rpcCallWithRetry("recover verify nonce account", () => connection.getAccountInfo(account.nonce.publicKey, "confirmed"));
+      verification.push({
+        index: account.index,
+        disposablePublicKey: account.disposable.publicKey.toBase58(),
+        disposableBalanceAfterLamports: disposableBalanceAfterLamports.toString(),
+        disposableBalanceAfterSol: formatLamports(disposableBalanceAfterLamports),
+        noncePublicKey: account.nonce.publicKey.toBase58(),
+        nonceExistsAfter: Boolean(nonceInfoAfter),
+        nonceBalanceAfterLamports: String(nonceInfoAfter?.lamports ?? 0),
+        ok: disposableBalanceAfterLamports === 0n && !nonceInfoAfter,
+      });
+    }
+    rescueBalanceAfterLamports = BigInt(await rpcCallWithRetry("recover verify rescue balance", () => connection.getBalance(rescue, "confirmed")));
+  } catch (error) {
+    writeJson(reportPath, {
+      ...baseReport,
+      status: "verification_failed",
+      signatures: sent,
+      verification,
+      verifyError: error.stack || error.message,
     });
+    printRecoverSummary(runId, "verification_failed", baseReport, reportPath);
+    process.exitCode = 1;
+    return;
   }
-  const rescueBalanceAfterLamports = BigInt(await connection.getBalance(rescue, "confirmed"));
   const status = verifiedStatus(
     "recovered",
-    sent.every((item) => item.confirmation.value.err === null),
+    sent.every((item) => item.confirmation?.value?.err === null),
     verification.every((item) => item.ok)
   );
 
@@ -1621,6 +1737,43 @@ function sumLamportStrings(values) {
   }, 0n);
 }
 
+async function rpcCallWithRetry(label, action, options = {}) {
+  const attempts = options.attempts ?? RPC_RETRY_ATTEMPTS;
+  const baseDelayMs = options.baseDelayMs ?? RPC_RETRY_BASE_DELAY_MS;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await action();
+    } catch (error) {
+      lastError = error;
+      if (attempt >= attempts || !isRetryableRpcError(error)) {
+        throw error;
+      }
+      const delayMs = baseDelayMs * 2 ** (attempt - 1);
+      log("warn", `${label} failed with retryable RPC error; retry ${attempt}/${attempts - 1} in ${delayMs}ms: ${firstLine(error.message)}`);
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+}
+
+function isRetryableRpcError(error) {
+  const text = [
+    error?.message,
+    error?.code,
+    error?.cause?.message,
+    error?.cause?.code,
+  ].filter(Boolean).join(" ");
+
+  return /429|Too Many Requests|fetch failed|Connect Timeout|UND_ERR_CONNECT_TIMEOUT|ECONNRESET|ETIMEDOUT|ENOTFOUND|socket hang up/i.test(text);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function stripExecuteRuntimeFields(execution) {
   const { transaction, ...reportable } = execution;
   return reportable;
@@ -1708,4 +1861,6 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
 export {
   MAX_TRANSACTION_SIZE_BYTES,
   buildPrepareTransactions,
+  isRetryableRpcError,
+  rpcCallWithRetry,
 };
