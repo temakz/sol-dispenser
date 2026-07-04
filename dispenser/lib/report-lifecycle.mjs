@@ -17,6 +17,19 @@ const REPORT_FILES = {
   },
 };
 
+const FORBIDDEN_REPORT_KEYS = new Set([
+  "ciphertext",
+  "disposableSeed",
+  "iv",
+  "nonceSeed",
+  "passphrase",
+  "privateKey",
+  "salt",
+  "secretKey",
+  "seed",
+  "tag",
+]);
+
 export function reportFileName(command, mode = "default") {
   const commandReports = REPORT_FILES[command];
   if (!commandReports) {
@@ -45,4 +58,32 @@ export function preflightStatus(preflightOk) {
 
 export function verifiedStatus(successStatus, confirmationOk, verificationOk) {
   return confirmationOk && verificationOk ? successStatus : "verification_failed";
+}
+
+export function assertReportHasNoSecretMaterial(report, path = "report") {
+  const issues = [];
+  scanReportValue(report, path, issues);
+  if (issues.length > 0) {
+    throw new Error(`Refusing to write report with secret material: ${issues.join(", ")}`);
+  }
+}
+
+function scanReportValue(value, path, issues) {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => scanReportValue(item, `${path}[${index}]`, issues));
+    return;
+  }
+
+  if (!value || typeof value !== "object") {
+    return;
+  }
+
+  for (const [key, child] of Object.entries(value)) {
+    const childPath = `${path}.${key}`;
+    if (FORBIDDEN_REPORT_KEYS.has(key)) {
+      issues.push(childPath);
+      continue;
+    }
+    scanReportValue(child, childPath, issues);
+  }
 }

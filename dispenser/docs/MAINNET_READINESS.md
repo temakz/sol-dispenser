@@ -91,6 +91,13 @@ Before approval, record offline:
 
 Do not commit wallet files, `.env`, encrypted run secrets, or run outputs.
 
+Report files are protected by a local runtime secret scan. The CLI refuses to
+write report JSON if a report object contains seed, private key, passphrase, or
+encrypted-secret payload fields. This does not make reports public-safe; treat
+wallet addresses, balances, recipients, RPC URLs, signatures, and timing as
+operationally sensitive unless the operator explicitly approves sharing a
+redacted report.
+
 ## Typed Confirmation Guards
 
 Mainnet send paths require all of:
@@ -135,6 +142,42 @@ npm run dispenser -- inspect --run <RUN_ID>
 
 If recover preflight reports a nonce authority mismatch, missing secrets, or an
 unexpected balance delta, stop and preserve reports for manual review.
+
+### Partial Prepare
+
+If `prepare --confirm` fails or is interrupted:
+
+1. Do not rerun with `--force` until inspecting the existing `prepare-report.json`.
+2. If the report contains submitted signatures, preserve it and run `inspect`
+   after explicit approval for the configured cluster.
+3. If inspect shows funded disposable wallets or initialized nonce accounts,
+   run `recover --dry-run` before any new prepare attempt.
+4. If no signatures were submitted and generated accounts are still empty, a
+   fresh run is usually safer than forcing the existing one.
+
+### Partial Execute
+
+If `execute --confirm` fails or is interrupted:
+
+1. Preserve `execute-report.json`, especially any `send_in_progress` signatures.
+2. Run `inspect` after explicit approval and compare recipient balances,
+   disposable balances, and nonce states.
+3. Rerun `execute --dry-run` only after inspect; the execute helper treats
+   already-funded recipients with empty disposable wallets as already executed.
+4. Run `recover --dry-run` after execute is complete or no remaining execute
+   action can safely proceed.
+
+### Partial Recover
+
+If `recover --confirm` fails or is interrupted:
+
+1. Preserve `recover-report.json`.
+2. Run `inspect` after explicit approval and check which nonce accounts are
+   closed and which disposable balances remain.
+3. Rerun `recover --dry-run`; recovered accounts should be idempotent because
+   closed nonce accounts and empty disposable wallets are reported as no-op.
+4. Rerun `recover --confirm` only after reviewing the new dry-run report and
+   typed mainnet confirmation flags.
 
 ## Current Readiness Status
 

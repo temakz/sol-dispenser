@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  assertReportHasNoSecretMaterial,
   inspectLifecycle,
   preflightStatus,
   reportFileName,
@@ -48,4 +49,27 @@ test("status helpers preserve report status vocabulary", () => {
   assert.equal(verifiedStatus("prepared", true, true), "prepared");
   assert.equal(verifiedStatus("executed", false, true), "verification_failed");
   assert.equal(verifiedStatus("recovered", true, false), "verification_failed");
+});
+
+test("report safety rejects secret material fields", () => {
+  assert.doesNotThrow(() => assertReportHasNoSecretMaterial({
+    schemaVersion: 1,
+    secretsFile: "runs/test/secrets.enc.json",
+    accounts: [{
+      disposablePublicKey: "11111111111111111111111111111111",
+      noncePublicKey: "11111111111111111111111111111111",
+    }],
+  }));
+
+  assert.throws(() => assertReportHasNoSecretMaterial({
+    accounts: [{
+      disposableSeed: "base64-seed",
+    }],
+  }), /report\.accounts\[0\]\.disposableSeed/);
+
+  assert.throws(() => assertReportHasNoSecretMaterial({
+    sendError: {
+      passphrase: "do-not-write-this",
+    },
+  }), /report\.sendError\.passphrase/);
 });

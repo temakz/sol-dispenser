@@ -188,7 +188,7 @@ Tasks:
 - audit configs: in progress; added stricter local config validation,
 - verify program id consistency: repo-local test added,
 - run devnet smoke test,
-- review secret handling,
+- review secret handling: in progress; report secret-material guard added,
 - add mainnet typed confirmation: existing send gates covered by tests,
 - document emergency recovery: initial checklist added.
 

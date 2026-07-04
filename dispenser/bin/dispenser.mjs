@@ -35,6 +35,7 @@ import {
   verifyPreparedAccounts,
 } from "../lib/solana-flows.mjs";
 import {
+  assertReportHasNoSecretMaterial,
   inspectLifecycle,
   preflightStatus,
   reportFileName,
@@ -1841,6 +1842,9 @@ function ensureRunsDir() {
 }
 
 function writeJson(path, value) {
+  if (/report\.json$/i.test(path)) {
+    assertReportHasNoSecretMaterial(value);
+  }
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
