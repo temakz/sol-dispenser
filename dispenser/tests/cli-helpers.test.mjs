@@ -1,8 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { Keypair } from "@solana/web3.js";
 
 import {
+  loadSourceKeypair,
   requireExecuteConfirmation,
   requirePrepareConfirmation,
   requireRecoverConfirmation,
@@ -85,6 +89,13 @@ test("validateConfig rejects inconsistent mainnet-ready settings", () => {
     ...validConfig(),
     cluster: "mainnet-beta",
     rpcUrl: "https://api.mainnet-beta.solana.com",
+    sourceWallet: "",
+  }), /mainnet-beta requires an explicit sourceWallet/);
+
+  assert.throws(() => validateConfig({
+    ...validConfig(),
+    cluster: "mainnet-beta",
+    rpcUrl: "https://api.mainnet-beta.solana.com",
     rescueWallet: "",
   }), /mainnet-beta requires an explicit rescueWallet/);
 
@@ -92,6 +103,11 @@ test("validateConfig rejects inconsistent mainnet-ready settings", () => {
     ...validConfig(),
     programId: "not-a-pubkey",
   }), /programId must be a Solana public key/);
+
+  assert.throws(() => validateConfig({
+    ...validConfig(),
+    sourceWallet: "not-a-pubkey",
+  }), /sourceWallet must be empty or a Solana public key/);
 
   assert.throws(() => validateConfig({
     ...validConfig(),
@@ -124,13 +140,42 @@ test("validateRpcUrlForCluster rejects obvious cluster mismatches", () => {
   );
 });
 
-test("mainnet plans require an explicit rescue wallet", () => {
+test("mainnet plans require explicit source and rescue wallets", () => {
+  assert.throws(() => validatePlan({
+    ...validPlan(),
+    sourceWallet: "not-a-pubkey",
+  }), /Invalid source wallet/);
+
+  assert.throws(() => validatePlan({
+    ...validPlan(),
+    cluster: "mainnet-beta",
+    rpcUrl: "https://api.mainnet-beta.solana.com",
+    sourceWallet: "",
+  }), /mainnet-beta plans require an explicit source wallet/);
+
   assert.throws(() => validatePlan({
     ...validPlan(),
     cluster: "mainnet-beta",
     rpcUrl: "https://api.mainnet-beta.solana.com",
     rescueWallet: "",
   }), /mainnet-beta plans require an explicit rescue wallet/);
+});
+
+test("loadSourceKeypair rejects source wallet mismatch", () => {
+  const source = Keypair.fromSeed(Buffer.alloc(32, 9));
+  const other = Keypair.fromSeed(Buffer.alloc(32, 10));
+  const dir = mkdtempSync(join(tmpdir(), "dispenser-source-"));
+  const walletPath = join(dir, "wallet.json");
+  writeFileSync(walletPath, `${JSON.stringify([...source.secretKey])}\n`);
+
+  assert.equal(
+    loadSourceKeypair(walletPath, Keypair, source.publicKey.toBase58()).publicKey.toBase58(),
+    source.publicKey.toBase58()
+  );
+  assert.throws(
+    () => loadSourceKeypair(walletPath, Keypair, other.publicKey.toBase58()),
+    /Source wallet mismatch/
+  );
 });
 
 test("validatePlan rejects mismatched totals and too many wallets", () => {
@@ -158,6 +203,7 @@ test("mainnet send confirmations require exact typed guards", () => {
     ...validPlan(),
     cluster: "mainnet-beta",
     rpcUrl: "https://api.mainnet-beta.solana.com",
+    sourceWallet: SOURCE,
     rescueWallet: SOURCE,
     totalSol: "0.000000001",
   };
@@ -242,6 +288,7 @@ function validPlan() {
     createdAt: "2026-07-03T00:00:00.000Z",
     cluster: "devnet",
     rpcUrl: "https://api.devnet.solana.com",
+    sourceWallet: SOURCE,
     sourceWalletPath: "./wallet.json",
     rescueWallet: SOURCE,
     programId: PROGRAM_ID,
@@ -263,6 +310,7 @@ function validConfig() {
   return {
     cluster: "devnet",
     rpcUrl: "https://api.devnet.solana.com",
+    sourceWallet: SOURCE,
     sourceWalletPath: "./wallet.json",
     rescueWallet: SOURCE,
     programId: PROGRAM_ID,

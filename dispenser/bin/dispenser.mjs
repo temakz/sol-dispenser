@@ -53,6 +53,7 @@ const RPC_RETRY_BASE_DELAY_MS = 500;
 const defaultConfig = {
   cluster: "devnet",
   rpcUrl: "https://api.devnet.solana.com",
+  sourceWallet: "",
   sourceWalletPath: "./wallet.json",
   rescueWallet: "",
   programId: "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6",
@@ -138,6 +139,9 @@ function commandDoctor() {
     console.log(`Cluster: ${config.cluster}`);
     console.log(`RPC: ${config.rpcUrl}`);
     console.log(`Program: ${config.programId}`);
+    if (config.sourceWallet) {
+      console.log(`Expected source: ${config.sourceWallet}`);
+    }
   }
 
   process.exitCode = requiredFailed ? 1 : 0;
@@ -175,7 +179,7 @@ function commandInit(args) {
 
   log("info", `Wrote ${relative(configPath)}`);
   log("info", `Created ${relative(runsDir)}`);
-  log("warn", "Review sourceWalletPath, rescueWallet, programId, and maxSolPerRun before using later phases.");
+  log("warn", "Review sourceWallet, sourceWalletPath, rescueWallet, programId, and maxSolPerRun before using later phases.");
 }
 
 async function commandPlan(args) {
@@ -226,6 +230,7 @@ async function commandPlan(args) {
     createdAt: new Date().toISOString(),
     cluster: config.cluster,
     rpcUrl: config.rpcUrl,
+    sourceWallet: config.sourceWallet ?? "",
     sourceWalletPath: config.sourceWalletPath,
     rescueWallet: config.rescueWallet,
     programId: config.programId,
@@ -372,7 +377,7 @@ async function commandPrepareDryRun(flags) {
     TransactionInstruction,
   } = await loadWeb3();
   const connection = new Connection(plan.rpcUrl, "confirmed");
-  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair);
+  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair, plan.sourceWallet);
   const sourceWallet = source.publicKey.toBase58();
   const programId = new PublicKey(plan.programId);
   const recentBlockhashesSysvar = new PublicKey(RECENT_BLOCKHASHES_SYSVAR_ADDRESS);
@@ -534,7 +539,7 @@ async function commandPrepareSubmit(flags) {
     TransactionInstruction,
   } = await loadWeb3();
   const connection = new Connection(plan.rpcUrl, "confirmed");
-  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair);
+  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair, plan.sourceWallet);
   const sourceWallet = source.publicKey.toBase58();
   const programId = new PublicKey(plan.programId);
   const recentBlockhashesSysvar = new PublicKey(RECENT_BLOCKHASHES_SYSVAR_ADDRESS);
@@ -793,7 +798,7 @@ async function commandInspect(args) {
     SystemProgram,
   } = await loadWeb3();
   const connection = new Connection(plan.rpcUrl, "confirmed");
-  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair);
+  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair, plan.sourceWallet);
   const sourceBalanceLamports = BigInt(await connection.getBalance(source.publicKey, "confirmed"));
   const bundle = secrets.accounts.map((account) => ({
     index: account.index,
@@ -918,7 +923,7 @@ async function commandExecute(args) {
     Transaction,
   } = await loadWeb3();
   const connection = new Connection(plan.rpcUrl, "confirmed");
-  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair);
+  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair, plan.sourceWallet);
   const bundle = secrets.accounts.map((account) => ({
     index: account.index,
     recipient: account.recipient,
@@ -1130,7 +1135,7 @@ async function commandRecover(args) {
     Transaction,
   } = await loadWeb3();
   const connection = new Connection(plan.rpcUrl, "confirmed");
-  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair);
+  const source = loadSourceKeypair(plan.sourceWalletPath, Keypair, plan.sourceWallet);
   const rescueWallet = plan.rescueWallet || source.publicKey.toBase58();
   const rescue = new PublicKey(rescueWallet);
   const bundle = secrets.accounts.map((account) => ({
@@ -1542,7 +1547,7 @@ async function loadWeb3() {
   }
 }
 
-function loadSourceKeypair(sourceWalletPath, Keypair) {
+function loadSourceKeypair(sourceWalletPath, Keypair, expectedSourceWallet = "") {
   const resolvedPath = resolve(repoRoot, sourceWalletPath);
   if (!existsSync(resolvedPath)) {
     throw new Error(`Source wallet not found: ${relative(resolvedPath)}`);
@@ -1552,7 +1557,13 @@ function loadSourceKeypair(sourceWalletPath, Keypair) {
   if (!Array.isArray(secret) || secret.length !== 64) {
     throw new Error("Source wallet must be a Solana keypair JSON array with 64 bytes");
   }
-  return Keypair.fromSecretKey(Uint8Array.from(secret));
+  const source = Keypair.fromSecretKey(Uint8Array.from(secret));
+  if (expectedSourceWallet && source.publicKey.toBase58() !== expectedSourceWallet) {
+    throw new Error(
+      `Source wallet mismatch: ${relative(resolvedPath)} is ${source.publicKey.toBase58()}, expected ${expectedSourceWallet}`
+    );
+  }
+  return source;
 }
 
 function keypairFromSeed(seedBase64, Keypair) {
@@ -1875,6 +1886,7 @@ export {
   MAX_TRANSACTION_SIZE_BYTES,
   buildPrepareTransactions,
   isRetryableRpcError,
+  loadSourceKeypair,
   rpcCallWithRetry,
   requireExecuteConfirmation,
   requirePrepareConfirmation,

@@ -13,7 +13,12 @@
         "required": ["cluster"]
       },
       "then": {
+        "required": ["sourceWallet", "rescueWallet"],
         "properties": {
+          "sourceWallet": {
+            "type": "string",
+            "minLength": 32
+          },
           "rescueWallet": {
             "type": "string",
             "minLength": 32
@@ -44,6 +49,10 @@
     "sourceWalletPath": {
       "type": "string",
       "minLength": 1
+    },
+    "sourceWallet": {
+      "type": "string",
+      "pattern": "^$|^[1-9A-HJ-NP-Za-km-z]{32,44}$"
     },
     "rescueWallet": {
       "type": "string",

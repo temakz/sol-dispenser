@@ -117,8 +117,14 @@ export function validatePlan(plan) {
   if (!isSolanaPubkey(plan.programId)) {
     throw new Error("Invalid program id");
   }
+  if (plan.sourceWallet && !isSolanaPubkey(plan.sourceWallet)) {
+    throw new Error("Invalid source wallet");
+  }
   if (plan.rescueWallet && !isSolanaPubkey(plan.rescueWallet)) {
     throw new Error("Invalid rescue wallet");
+  }
+  if (plan.cluster === "mainnet-beta" && !plan.sourceWallet) {
+    throw new Error("mainnet-beta plans require an explicit source wallet");
   }
   if (plan.cluster === "mainnet-beta" && !plan.rescueWallet) {
     throw new Error("mainnet-beta plans require an explicit rescue wallet");
@@ -209,8 +215,20 @@ export function validateConfig(config) {
     throw new Error("programId must be a Solana public key");
   }
 
+  if (config.sourceWallet !== undefined && typeof config.sourceWallet !== "string") {
+    throw new Error("sourceWallet must be a string when provided");
+  }
+
+  if (config.sourceWallet && !isSolanaPubkey(config.sourceWallet)) {
+    throw new Error("sourceWallet must be empty or a Solana public key");
+  }
+
   if (config.rescueWallet && !isSolanaPubkey(config.rescueWallet)) {
     throw new Error("rescueWallet must be empty or a Solana public key");
+  }
+
+  if (config.cluster === "mainnet-beta" && !config.sourceWallet) {
+    throw new Error("mainnet-beta requires an explicit sourceWallet");
   }
 
   if (config.cluster === "mainnet-beta" && !config.rescueWallet) {

@@ -62,6 +62,7 @@ Creates local config:
 
 - cluster,
 - RPC URL,
+- source wallet public key,
 - source wallet path,
 - program id,
 - default output directory,
@@ -234,6 +235,7 @@ Before prepare:
 - each output amount must be greater than zero,
 - total output must equal expected total unless dust is explicitly configured,
 - source wallet must have amount + nonce rent + estimated fees + buffer,
+- source wallet keypair file must match configured source wallet public key when configured,
 - all recipients must be valid Solana pubkeys,
 - all generated accounts must be unique,
 - mainnet requires explicit typed confirmation.

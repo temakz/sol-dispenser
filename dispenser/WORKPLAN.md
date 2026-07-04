@@ -187,7 +187,7 @@ Tasks:
 
 - audit configs: done; added stricter local config validation and final config checklist,
 - verify program id consistency: repo-local test added,
-- run devnet smoke test: done on 2026-07-04 with run `20260704T132636Z`,
+- run devnet smoke test: done on 2026-07-04 with run `20260704T132636Z`; rerun before send gates after source-wallet guard,
 - review secret handling: done; report secret-material guard added,
 - add mainnet typed confirmation: existing send gates covered by tests,
 - document emergency recovery: done; partial prepare/execute/recover procedures added,

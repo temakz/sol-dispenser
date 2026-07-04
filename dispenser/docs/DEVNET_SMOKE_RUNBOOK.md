@@ -29,6 +29,7 @@ Confirm `dispenser.config.json` uses:
 {
   "cluster": "devnet",
   "rpcUrl": "https://api.devnet.solana.com",
+  "sourceWallet": "<optional expected devnet source wallet>",
   "sourceWalletPath": "./wallet.json",
   "rescueWallet": "<operator-controlled devnet rescue wallet>",
   "programId": "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6",

@@ -58,6 +58,7 @@ and docs` covers the repo-local files. It does not prove a mainnet deployment.
 {
   "cluster": "mainnet-beta",
   "rpcUrl": "<operator-approved mainnet RPC URL>",
+  "sourceWallet": "<operator-controlled mainnet source wallet public key>",
   "sourceWalletPath": "./wallet.json",
   "rescueWallet": "<operator-controlled mainnet rescue wallet>",
   "programId": "6t1gxhDe9rm2JjNrwaaL941hfik3GgxY2AiYpxfugRy6",
@@ -70,6 +71,8 @@ Rules enforced by local validation:
 
 - `requireMainnetTypedConfirmation` must be `true`.
 - `programId` must be a Solana public key.
+- `sourceWallet` must be a Solana public key when `cluster` is `mainnet-beta`.
+- `sourceWalletPath` must load a keypair whose public key equals `sourceWallet`.
 - `rescueWallet` must be a Solana public key when `cluster` is `mainnet-beta`.
 - `maxSolPerRun` must be greater than zero.
 - obvious RPC/cluster mismatches are rejected.
@@ -83,6 +86,11 @@ The source wallet pays prepare funding and later execute/recover fees. The rescu
 wallet receives all recoverable leftovers and nonce rent. For mainnet, the rescue
 wallet must be explicit; falling back to the source wallet is allowed only for
 non-mainnet runs.
+
+Set the public source wallet in `sourceWallet`, and set the local keypair file
+in `sourceWalletPath`. The CLI derives the public key from `sourceWalletPath`
+before prepare, inspect, execute, and recover. If it does not match
+`sourceWallet`, the command fails before building or sending transactions.
 
 Before approval, record offline:
 
@@ -166,7 +174,9 @@ Review `dispenser.config.json` before planning:
 - `cluster` is exactly `mainnet-beta`.
 - `rpcUrl` is the operator-approved mainnet RPC endpoint.
 - `rpcUrl` does not point at devnet, testnet, localhost, or 127.0.0.1.
+- `sourceWallet` is non-empty and matches the recorded source wallet.
 - `sourceWalletPath` points at the intended operator-controlled keypair file.
+- the keypair at `sourceWalletPath` derives to `sourceWallet`.
 - `rescueWallet` is non-empty and matches the recorded rescue wallet.
 - `programId` matches the operator-approved deployed mainnet program id.
 - `maxSolPerRun` matches the approved cap.
@@ -365,6 +375,12 @@ commit `24778aa` using run `20260704T132636Z`:
 - final `inspect-report.json`: `ok`,
 - final recoverable amount: `0 SOL`,
 - final source balance: `0.76145324 SOL`.
+
+After that smoke run, an additional source-wallet guard was added: mainnet
+configs and plans must include `sourceWallet`, and the CLI verifies that
+`sourceWalletPath` derives to that public key before prepare, inspect, execute,
+or recover. Run a fresh devnet smoke on the new target commit before any
+mainnet send gate.
 
 A mainnet deployment, mainnet RPC verification, mainnet dry-run, and every
 mainnet send action each require separate explicit operator approval.
