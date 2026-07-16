@@ -190,7 +190,8 @@ Tasks:
 - verify mainnet program account exists and is executable: blocked; Gate 1 found no
   account at the configured mainnet program id,
 - deploy or approve the executable mainnet program id: pending separate explicit
-  operator approval,
+  operator approval; Gate 0.5 deployment plan added in
+  `docs/MAINNET_PROGRAM_DEPLOYMENT_PLAN.md`,
 - run devnet smoke test: done on 2026-07-04 with run `20260704T171606Z` after source-wallet guard,
 - review secret handling: done; report secret-material guard added,
 - add mainnet typed confirmation: existing send gates covered by tests,

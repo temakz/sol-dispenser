@@ -59,6 +59,9 @@ deployed to mainnet. The configured mainnet program id
 mainnet-beta. Mainnet deployment or an operator-approved existing executable
 mainnet program id is required before the next gate.
 
+The Gate 0.5 deployment plan is documented in
+`docs/MAINNET_PROGRAM_DEPLOYMENT_PLAN.md`.
+
 ## Config Policy
 
 `dispenser.config.json` must be reviewed by the operator before planning:
